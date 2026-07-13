@@ -1,6 +1,6 @@
 {
   "generated": "2026-07-13",
-  "count": 3,
+  "count": 4,
   "meetings": [
     {
       "slug": "2026-01-26-example-project-kickoff",
@@ -28,6 +28,15 @@
       "project": "Example Project B",
       "summary": "Sample meeting to demonstrate the site. A second project thread appears in its own color, showing how parallel work reads as distinct strands on the timeline.",
       "hasSlides": false
+    },
+    {
+      "slug": "2026-07-13-magf-sdf-reengineering",
+      "path": "meetings/2026-07-13-magf-sdf-reengineering/",
+      "title": "MAGF, honestly: why the two-stage decoder plateaued \u2014 and the SDF re-engineering that fixes it",
+      "date": "2026-07-13",
+      "project": "Membrane2Former \u2192 SDF",
+      "summary": "Final results from the optimized 2D two-stage MAGF decoder block. The idea (membrane-aware geometry feedback for organelle segmentation) is promising, but the soft-bias implementation turned out causally inert. The failure is diagnostic, not fatal: an oracle membrane sign-gate drives the topological 'leak' to zero at no cost to real organelles \u2014 which points to re-engineering MAGF with learned membrane signed-distance fields (SDFs) so containment is licensed by construction. Includes an SDF primer + where this stands vs the recent CVPR 2026 SDF-for-cryo paper.",
+      "hasSlides": true
     }
   ]
 }

@@ -1,0 +1,17 @@
+{
+  "title": "MAGF, honestly: why the two-stage decoder plateaued — and the SDF re-engineering that fixes it",
+  "date": "2026-07-13",
+  "project": "Membrane2Former → SDF",
+  "summary": "Final results from the optimized 2D two-stage MAGF decoder block. The idea (membrane-aware geometry feedback for organelle segmentation) is promising, but the soft-bias implementation turned out causally inert. The failure is diagnostic, not fatal: an oracle membrane sign-gate drives the topological 'leak' to zero at no cost to real organelles — which points to re-engineering MAGF with learned membrane signed-distance fields (SDFs) so containment is licensed by construction. Includes an SDF primer + where this stands vs the recent CVPR 2026 SDF-for-cryo paper.",
+  "takeaways": [
+    "MAGF as built (soft additive boundary/distance attention bias) is causally INERT — ablating it changes predictions by Δ≈0; soft constraints get ignored.",
+    "The real failure is a late-training regression: the model leaks organelles into extracellular space, hugging the membrane, and the ECS/boundary scaffold unlearns late.",
+    "Diagnostic win: an ORACLE membrane sign-gate removes the leak at zero cost to true organelles — but no post-hoc gate on the model's own sign works, because the sign never learned to flip at the bilayer.",
+    "Path forward: re-engineer MAGF with a LEARNED membrane SDF whose SIGN licenses multi-compartment containment by construction — strict where biology is strict (closed bags), permissive where it isn't (open sheets, licensed pores/contacts).",
+    "Novelty vs Spatial-SAM (CVPR 2026): they use an SDF as a spatial-consistency memory / boundary cue for SAM2 on 2-class cryo EM; we use the SDF SIGN as a licensed containment gate across a ~48-class organelle hierarchy — an unclaimed intersection."
+  ],
+  "links": [
+    { "label": "Spatial-SAM (CVPR 2026) — SDF memory for 3D-EM segmentation", "url": "https://openaccess.thecvf.com/content/CVPR2026/papers/Huang_Spatial-SAM_Spatially_Consistent_3D_Electron_Microscopy_Segmentation_with_SDF_Memory_CVPR_2026_paper.pdf" }
+  ],
+  "slides": "index.html"
+}

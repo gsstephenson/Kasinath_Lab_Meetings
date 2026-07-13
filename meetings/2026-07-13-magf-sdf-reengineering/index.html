@@ -1,0 +1,778 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>MAGF → MAGC — Kasinath Lab</title>
+<style>
+  :root{
+    --ground:#0d1014; --panel:#141a21; --panel-2:#1b232c;
+    --ink:#e9edf1; --muted:#8b97a4; --faint:#5b6773; --line:#26303a;
+    --gold:#cfb87c; --inside:#38bda9; --outside:#e28a52; --leak:#e0555f; --ok:#7fce8f;
+    --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Code","JetBrains Mono",Menlo,Consolas,monospace;
+    --maxw:68ch; --stage-bg:#090c10;
+  }
+  @media (prefers-color-scheme:light){
+    :root{ --ground:#f4f6f8; --panel:#ffffff; --panel-2:#eef1f4;
+      --ink:#151a1f; --muted:#586573; --faint:#8b98a4; --line:#dde3e9;
+      --gold:#8f7735; --inside:#1c8879; --outside:#bf6531; --leak:#c73f49; --ok:#3a9a54; --stage-bg:#0b0e12; }
+  }
+  :root[data-theme="dark"]{ --ground:#0d1014; --panel:#141a21; --panel-2:#1b232c;
+    --ink:#e9edf1; --muted:#8b97a4; --faint:#5b6773; --line:#26303a;
+    --gold:#cfb87c; --inside:#38bda9; --outside:#e28a52; --leak:#e0555f; --ok:#7fce8f; --stage-bg:#090c10; }
+  :root[data-theme="light"]{ --ground:#f4f6f8; --panel:#ffffff; --panel-2:#eef1f4;
+    --ink:#151a1f; --muted:#586573; --faint:#8b98a4; --line:#dde3e9;
+    --gold:#8f7735; --inside:#1c8879; --outside:#bf6531; --leak:#c73f49; --ok:#3a9a54; --stage-bg:#0b0e12; }
+
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth;scroll-snap-type:y mandatory}
+  body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);
+    line-height:1.62;-webkit-font-smoothing:antialiased;font-size:17px}
+  .progress{position:fixed;top:0;left:0;height:3px;background:var(--gold);z-index:40;width:0;transition:width .25s ease}
+  .deck-nav{position:fixed;right:16px;bottom:16px;z-index:30;display:flex;align-items:center;gap:6px;
+    background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:5px 7px;box-shadow:0 3px 14px rgba(0,0,0,.18)}
+  .deck-nav button{font-family:var(--mono);font-size:17px;width:32px;height:32px;border-radius:50%;border:0;background:transparent;
+    color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1}
+  .deck-nav button:hover:not(:disabled){color:var(--ink)} .deck-nav button:disabled{opacity:.3;cursor:default}
+  .deck-count{font-family:var(--mono);font-size:11.5px;color:var(--faint);min-width:48px;text-align:center;font-variant-numeric:tabular-nums}
+  .wrap{max-width:960px;margin:0 auto;padding:0 24px}
+  .col{max-width:var(--maxw)}
+  a{color:var(--gold);text-decoration:none;border-bottom:1px solid color-mix(in oklab,var(--gold) 40%,transparent)}
+  a:hover{border-bottom-color:var(--gold)}
+  :focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+  .eyebrow{font-family:var(--mono);font-size:12.5px;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--faint);display:flex;align-items:center;gap:.7em;margin:0 0 16px}
+  .eyebrow::before{content:"";width:26px;height:1px;background:var(--gold);opacity:.85}
+  h1{font-size:clamp(2.2rem,6vw,3.8rem);line-height:1.02;letter-spacing:-.022em;font-weight:800;
+    text-wrap:balance;margin:.05em 0 .3em}
+  h2{font-size:clamp(1.5rem,3.4vw,2.15rem);line-height:1.12;letter-spacing:-.015em;font-weight:750;
+    text-wrap:balance;margin:0 0 .55em;max-width:26ch}
+  h3{font-size:1.05rem;font-weight:700;letter-spacing:.01em;margin:0 0 .3em}
+  p{margin:0 0 1.05em}
+  .lead{font-size:clamp(1.12rem,2vw,1.34rem);color:var(--ink);line-height:1.45}
+  .muted{color:var(--muted)}
+  em{font-style:italic}
+  strong{font-weight:700;color:var(--ink)}
+  .handoff{color:var(--gold);font-weight:600;font-size:1.06rem;margin-top:6px}
+
+  section{min-height:100vh;display:flex;flex-direction:column;justify-content:center;
+    scroll-snap-align:start;padding:88px 0;border-top:0}
+  main>section{border-top:1px solid var(--line)}
+
+  /* hero */
+  .hero{position:relative;min-height:100vh;display:flex;flex-direction:column;justify-content:center;
+    padding:88px 0 60px;overflow:hidden;border-top:0;scroll-snap-align:start}
+  #heroCanvas{position:absolute;inset:0;width:100%;height:100%;z-index:0;opacity:.5}
+  .hero .wrap{position:relative;z-index:1}
+  .kicker{font-family:var(--mono);font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin-bottom:24px}
+  .hero .lead{max-width:30ch;margin:0 0 .5em}
+  .thesis{font-size:clamp(1.02rem,1.9vw,1.24rem);color:var(--muted);max-width:58ch;margin-top:8px}
+  .thesis b{color:var(--ink);font-weight:650}
+  .metaline{margin-top:36px;font-family:var(--mono);font-size:12.5px;color:var(--faint);display:flex;flex-wrap:wrap;gap:8px 22px}
+
+  /* pipeline */
+  .pipeline-wrap{overflow-x:auto;margin-top:24px;padding-bottom:4px}
+  .pipeline{display:flex;align-items:stretch;gap:9px;min-width:660px}
+  .pstage{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:13px 14px;display:flex;flex-direction:column}
+  .pstage.frozen{border-style:dashed}
+  .pstage.accent{border-color:color-mix(in oklab,var(--gold) 55%,var(--line))}
+  .pstage .pl{font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--gold);margin-bottom:6px}
+  .pstage .pn{font-size:13.5px;font-weight:650;line-height:1.25}
+  .pstage .ps{font-size:11.5px;color:var(--muted);margin-top:4px}
+  .parrow{display:flex;align-items:center;color:var(--faint);font-size:15px;flex:none}
+  .fb{margin-top:16px;font-family:var(--mono);font-size:12.5px;color:var(--outside);
+    border-left:2px solid var(--outside);padding:2px 0 2px 13px;line-height:1.5}
+
+  /* interactive SDF panel */
+  .sdf-panel{display:grid;grid-template-columns:1.4fr .95fr;align-items:stretch;gap:0;margin-top:28px;
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  @media (max-width:720px){.sdf-panel{grid-template-columns:1fr}}
+  .sdf-stage{position:relative;background:var(--stage-bg);aspect-ratio:10/7}
+  #sdfCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:crosshair;touch-action:none}
+  .stage-tag{position:absolute;top:12px;left:14px;font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;
+    text-transform:uppercase;color:#7f8b98;z-index:2;pointer-events:none}
+  .sdf-side{padding:22px;display:flex;flex-direction:column;gap:15px;border-left:1px solid var(--line);min-width:0}
+  @media (max-width:720px){.sdf-side{border-left:0;border-top:1px solid var(--line)}}
+  .readout{font-family:var(--mono);font-size:13px;line-height:1.9;background:var(--panel-2);border-radius:9px;padding:12px 14px}
+  .readout .row{display:flex;justify-content:space-between;gap:10px}
+  .readout .k{color:var(--muted)} .readout .v{font-weight:700;font-variant-numeric:tabular-nums;text-align:right}
+  .swatches{display:flex;flex-direction:column;gap:8px;font-size:13px;color:var(--muted)}
+  .sw{display:flex;align-items:center;gap:10px}
+  .chip{width:20px;height:11px;border-radius:3px;flex:none}
+  .toggle{display:flex;background:var(--panel-2);border-radius:9px;padding:4px;gap:4px}
+  .toggle button{flex:1;font-family:var(--mono);font-size:11.5px;letter-spacing:.03em;padding:9px 4px;border:0;border-radius:6px;background:transparent;color:var(--muted);cursor:pointer;font-weight:600}
+  .toggle button[aria-pressed="true"]{background:var(--gold);color:#1a1205}
+  .verdict{font-family:var(--mono);font-size:12px;padding:11px 13px;border-radius:8px;line-height:1.55}
+  .verdict.bad{background:color-mix(in oklab,var(--leak) 15%,transparent);color:var(--leak);border:1px solid color-mix(in oklab,var(--leak) 34%,transparent)}
+  .verdict.good{background:color-mix(in oklab,var(--ok) 13%,transparent);color:var(--ok);border:1px solid color-mix(in oklab,var(--ok) 30%,transparent)}
+  .hint{font-size:11.5px;color:var(--faint);font-family:var(--mono)}
+
+  /* pull-quote */
+  .pull{margin:30px 0 4px;padding-left:22px;border-left:3px solid var(--gold);
+    font-size:clamp(1.3rem,2.6vw,1.7rem);line-height:1.25;font-weight:700;letter-spacing:-.01em;text-wrap:balance;color:var(--ink)}
+  .pull span{color:var(--gold)}
+
+  /* cards */
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:26px}
+  @media (max-width:680px){.grid2{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px 22px}
+  .card h3{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .tag{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:5px;font-weight:700}
+  .tag.strict{background:color-mix(in oklab,var(--inside) 18%,transparent);color:var(--inside)}
+  .tag.perm{background:color-mix(in oklab,var(--gold) 20%,transparent);color:var(--gold)}
+  .tag.two{background:color-mix(in oklab,var(--leak) 15%,transparent);color:var(--leak)}
+  .tag.three{background:color-mix(in oklab,var(--ok) 16%,transparent);color:var(--ok)}
+  .card p{font-size:14.5px;margin-bottom:0;color:var(--muted)}
+  .card p strong{color:var(--ink)}
+
+  /* two missing pieces */
+  .miss-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:26px}
+  @media(max-width:680px){.miss-grid{grid-template-columns:1fr}}
+  .miss{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px}
+  .miss-n{font-family:var(--mono);font-size:2rem;font-weight:700;color:var(--gold);line-height:1;margin-bottom:12px}
+  .miss h3{font-size:1.32rem;margin:0 0 2px}
+  .miss p{font-size:14.5px;color:var(--muted);margin:0}
+  .miss p.miss-lead{font-family:var(--mono);font-size:13px;color:var(--outside);margin:0 0 12px}
+  .miss p.miss-lead b{color:var(--ink)}
+  .sota-line{margin-top:28px;font-size:clamp(1.15rem,2.4vw,1.55rem);font-weight:750;line-height:1.25;
+    text-wrap:balance;color:var(--ink);text-align:center}
+  .sota-line span{color:var(--gold)}
+
+  /* findings */
+  .findings{margin-top:24px;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .finding{display:grid;grid-template-columns:120px 1fr;gap:22px;padding:20px 24px;border-top:1px solid var(--line);align-items:start}
+  .finding:first-child{border-top:0}
+  .finding .big{font-family:var(--mono);font-size:1.55rem;font-weight:700;color:var(--gold);font-variant-numeric:tabular-nums;line-height:1.05}
+  .finding .big small{display:block;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);font-weight:600;margin-top:7px}
+  .finding p{margin:0;font-size:14.5px;color:var(--muted)} .finding p b{color:var(--ink)}
+
+  /* scorecard flip-through viewer */
+  .scoreview{margin-top:26px;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--panel)}
+  .sv-top{display:grid;grid-template-columns:1.3fr 1fr;align-items:stretch}
+  @media(max-width:720px){.sv-top{grid-template-columns:1fr}}
+  .sv-stage{position:relative;background:var(--stage-bg);aspect-ratio:10/7}
+  #svCanvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .sv-badge{position:absolute;top:12px;right:12px;font-family:var(--mono);font-size:11.5px;font-weight:700;padding:6px 11px;border-radius:20px;z-index:2}
+  .sv-panel{padding:24px;border-left:1px solid var(--line);display:flex;flex-direction:column;gap:11px;min-width:0}
+  @media(max-width:720px){.sv-panel{border-left:0;border-top:1px solid var(--line)}}
+  .sv-num{font-family:var(--mono);font-size:1.7rem;font-weight:700;color:var(--gold);font-variant-numeric:tabular-nums;line-height:1.05}
+  .sv-num small{display:block;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);font-weight:600;margin-top:6px}
+  .sv-panel h3{font-size:1.12rem;margin:4px 0 0}
+  .sv-panel p{font-size:14px;color:var(--muted);margin:0;line-height:1.5}
+  .sv-ctl{margin-top:auto;padding-top:6px}
+  .sv-ctl button{font-family:var(--mono);font-size:12px;font-weight:600;padding:9px 14px;border-radius:7px;border:1px solid var(--line);background:var(--panel-2);color:var(--ink);cursor:pointer}
+  .sv-ctl button[aria-pressed=true]{background:var(--gold);color:#1a1205;border-color:var(--gold)}
+  .sv-note{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .sv-nav{display:flex;align-items:center;justify-content:space-between;padding:11px 18px;border-top:1px solid var(--line);gap:12px}
+  .sv-nav button{font-family:var(--mono);font-size:18px;width:40px;height:36px;border-radius:8px;border:1px solid var(--line);background:var(--panel-2);color:var(--ink);cursor:pointer}
+  .sv-nav button:disabled{opacity:.32;cursor:default}
+  .sv-dots{display:flex;gap:8px;align-items:center}
+  .sv-dots i{width:8px;height:8px;border-radius:50%;background:var(--line);transition:width .2s}
+  .sv-dots i.on{background:var(--gold);width:22px;border-radius:4px}
+  .sv-step{font-family:var(--mono);font-size:11.5px;color:var(--faint);margin-left:auto}
+
+  /* comparison */
+  .cmp-wrap{overflow-x:auto;margin-top:24px;border:1px solid var(--line);border-radius:12px}
+  .cmp{width:100%;border-collapse:collapse;font-size:14.5px;min-width:560px}
+  .cmp th,.cmp td{text-align:left;padding:13px 16px;border-bottom:1px solid var(--line);vertical-align:top}
+  .cmp tr:last-child td,.cmp tr:last-child th{border-bottom:0}
+  .cmp thead th{font-family:var(--mono);font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);font-weight:700}
+  .cmp tbody th{font-weight:600;color:var(--ink);width:28%}
+  .cmp .ours{color:var(--gold);font-weight:600} .cmp .theirs{color:var(--muted)}
+
+  /* 2D -> 3D */
+  .dimrow{display:flex;align-items:center;gap:30px;margin-top:26px;flex-wrap:wrap}
+  .zstack{position:relative;width:150px;height:118px;flex:none}
+  .zstack .sl{position:absolute;width:104px;height:66px;border:1.5px solid var(--gold);border-radius:7px;
+    background:color-mix(in oklab,var(--stage-bg) 62%,var(--inside) 38%);box-shadow:0 2px 10px rgba(0,0,0,.25)}
+  .zstack .sl:nth-child(1){transform:translate(0,48px);opacity:.55}
+  .zstack .sl:nth-child(2){transform:translate(13px,32px);opacity:.7}
+  .zstack .sl:nth-child(3){transform:translate(26px,16px);opacity:.85}
+  .zstack .sl:nth-child(4){transform:translate(39px,0)}
+  .dimarrow{font-size:22px;color:var(--faint);flex:none}
+  .dimcube{width:110px;height:110px;flex:none;position:relative;border:1.5px solid var(--gold);border-radius:10px;
+    background:radial-gradient(circle at 40% 38%, color-mix(in oklab,var(--inside) 55%,var(--stage-bg)), var(--stage-bg) 72%)}
+  .dimcube::after{content:"3D enclosure";position:absolute;bottom:-24px;left:0;right:0;text-align:center;
+    font-family:var(--mono);font-size:11px;color:var(--gold)}
+  .dimcap{font-family:var(--mono);font-size:11px;color:var(--faint);text-align:center;margin-top:8px}
+  .dimtext{flex:1;min-width:240px}
+
+  /* path forward */
+  .rungs{list-style:none;padding:0;margin:26px 0 0;counter-reset:r}
+  .rungs li{counter-increment:r;display:grid;grid-template-columns:2.4em 1fr;gap:18px;padding:18px 0;border-top:1px dashed var(--line);align-items:baseline}
+  .rungs li:first-child{border-top:0}
+  .rungs li::before{content:counter(r,decimal-leading-zero);font-family:var(--mono);font-size:14px;color:var(--gold);font-weight:700}
+  .rung-body b{display:block;color:var(--ink);font-size:1.06rem;font-weight:700;margin-bottom:5px}
+  .rung-body span{color:var(--muted);font-size:15px;line-height:1.5}
+
+  footer{padding:44px 0 66px;border-top:1px solid var(--line);color:var(--faint);font-family:var(--mono);font-size:12.5px}
+  .backnav{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+
+  .theme-toggle{position:fixed;top:14px;right:14px;z-index:30;font-family:var(--mono);font-size:15px;line-height:1;
+    color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:50%;width:38px;height:38px;
+    cursor:pointer;display:flex;align-items:center;justify-content:center}
+  .theme-toggle:hover{color:var(--ink);border-color:var(--gold)}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+
+
+<button class="theme-toggle" id="themeBtn" aria-label="Toggle light or dark theme" title="Toggle theme">◐</button>
+<div class="progress" id="progress"></div>
+<div class="deck-nav">
+  <button id="deckPrev" type="button" aria-label="previous slide">‹</button>
+  <span class="deck-count" id="deckCount">1 / 10</span>
+  <button id="deckNext" type="button" aria-label="next slide">›</button>
+</div>
+
+<header class="hero">
+  <canvas id="heroCanvas" aria-hidden="true"></canvas>
+  <div class="wrap">
+    <div class="kicker">Kasinath Lab · Round Table · 13 Jul 2026</div>
+    <h1>MAGF&#8202;→&#8202;MAGC</h1>
+    <p class="lead">A year on a membrane-aware decoder, the honest scorecard, and why the failure points straight at signed distance — and at 3D.</p>
+    <p class="thesis">We built a decoder meant to keep organelles <b>inside the cell</b>. The mechanism didn't fire — but <b>how</b> it failed names exactly what to build next: not <em>Feedback</em>, but <em>Containment</em>.</p>
+    <div class="metaline">
+      <span>George Stephenson</span><span>Membrane2Former</span><span>2D two-stage MAGF · final results</span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section id="problem">
+    <div class="wrap col">
+      <div class="eyebrow">The problem</div>
+      <h2>A segmentation model forgets that a cell has an inside.</h2>
+      <p>A 3D U-Net scores every voxel independently. Nothing in the loss knows a ribosome can't sit in the extracellular space, or that a cristae must live <em>inside</em> its own mitochondrial membrane. So models emit <strong>morphologically illegal</strong> maps — organelles floating outside the plasma membrane, lumens with no wall.</p>
+      <p>That isn't cosmetic. Every downstream measurement we care about — membrane contact sites, surface-to-volume ratios, who-encloses-whom — is a <em>topological</em> question. If the topology is wrong, the biology is wrong.</p>
+      <p class="handoff">So we spent the year building a decoder that wouldn't make those mistakes. Here's what it became.</p>
+    </div>
+  </section>
+
+  <section id="build">
+    <div class="wrap col">
+      <div class="eyebrow">The final MAGF build</div>
+      <h2>A two-stage, membrane-aware decoder on frozen DINOv3 features.</h2>
+      <p>The final implementation is a Mask2Former-style decoder that reasons about geometry before it commits to organelles:</p>
+    </div>
+    <div class="wrap">
+      <div class="pipeline-wrap">
+        <div class="pipeline">
+          <div class="pstage frozen"><div class="pl">backbone</div><div class="pn">DINOv3 ViT-L</div><div class="ps">frozen · pretrained 2D features</div></div>
+          <div class="parrow">→</div>
+          <div class="pstage"><div class="pl">adapter + pixel decoder</div><div class="pn">ViTDet · MSDeformAttn</div><div class="ps">multi-scale feature pyramid</div></div>
+          <div class="parrow">→</div>
+          <div class="pstage accent"><div class="pl">stage 1</div><div class="pn">Composite geometry</div><div class="ps">n=32 · membrane / boundary</div></div>
+          <div class="parrow">→</div>
+          <div class="pstage"><div class="pl">stage 2 · detached</div><div class="pn">Atomic organelles</div><div class="ps">n=16 · lumen / interior</div></div>
+          <div class="parrow">→</div>
+          <div class="pstage"><div class="pl">readout</div><div class="pn">48-ch containment map</div><div class="ps">argmax over 31 leaves</div></div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="fb"><b>MAGF</b> = the feedback loop: Stage&nbsp;2 is conditioned on Stage&nbsp;1's composite mask logits through a gate (hard gradient separation via detach), and Stage&nbsp;1's geometry becomes a boundary + distance-transform <em>attention bias</em> so the organelle head "knows where the walls are." Tiers: boundary bias → DT proximity → a per-class learned gate τ<sub>c</sub>.</div>
+        <p class="handoff" style="margin-top:22px">A clean idea, fully built and tuned across multiple seeds. So — did the walls hold?</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="scorecard">
+    <div class="wrap col">
+      <div class="eyebrow">What worked · what didn't</div>
+      <h2>The pipeline is optimized — and it isolated exactly what's missing.</h2>
+      <p>This isn't a rough draft: a tuned, multi-seed two-stage decoder on strong DINOv3 features, training stably across all 48 classes with the readout corrected. So the gap to state of the art isn't "everything" — it's <strong>two specific things</strong>. The first shows up when we probe MAGF itself:</p>
+    </div>
+    <div class="wrap">
+      <div class="scoreview">
+        <div class="sv-top">
+          <div class="sv-stage"><canvas id="svCanvas"></canvas><div class="sv-badge" id="svBadge"></div></div>
+          <div class="sv-panel">
+            <div class="sv-num" id="svNum"></div>
+            <h3 id="svTitle"></h3>
+            <p id="svText"></p>
+            <div class="sv-ctl" id="svCtl"></div>
+          </div>
+        </div>
+        <div class="sv-nav">
+          <button id="svPrev" type="button" aria-label="previous finding">‹</button>
+          <div class="sv-dots" id="svDots"><i class="on"></i><i></i><i></i></div>
+          <span class="sv-step" id="svStep">finding 1 / 3</span>
+          <button id="svNext" type="button" aria-label="next finding">›</button>
+        </div>
+      </div>
+      <p class="handoff col" style="margin-top:26px">That third result is a gift. It doesn't say the idea is wrong — it names the one thing that's missing.</p>
+    </div>
+  </section>
+
+  <section id="bridge">
+    <div class="wrap col">
+      <div class="eyebrow">The diagnosis</div>
+      <h2>The model doesn't need a hint. It needs a sign.</h2>
+      <p>Two results, one conclusion. The inert bias says: a <em>suggestion</em> is ignorable — make the geometry <strong>load-bearing</strong>. The oracle gate says: if you know inside-vs-outside at <em>every</em> point, the leak is impossible. "Inside/outside at every point, carried by a sign" is not a vibe — it's a specific mathematical object.</p>
+      <p class="pull">A soft bias is a suggestion.<br>A signed distance field's sign is a <span>law</span>.</p>
+      <p class="handoff" style="margin-top:22px">Ninety seconds on what that field actually is — you can drive it.</p>
+    </div>
+  </section>
+
+  <section id="sdf">
+    <div class="wrap col">
+      <div class="eyebrow">SDF, in ninety seconds</div>
+      <h2>A signed distance field knows inside from outside — everywhere, not just on the wall.</h2>
+      <p>For every point, store the distance to the nearest membrane, with a <span style="color:var(--inside);font-weight:600">sign</span>: negative <span style="color:var(--inside);font-weight:600">inside</span>, positive <span style="color:var(--outside);font-weight:600">outside</span>, zero <em>on</em> the membrane (the <span style="color:var(--gold);font-weight:600">gold line</span>). That one sign bit is a containment license — an organelle is only allowed where the field is negative.</p>
+      <p class="muted" style="font-size:15px">Hover the field to probe the signed distance. Then flip the toggle: watch a leaked organelle get <em>licensed away</em> by the sign — no threshold, no cleanup, just geometry.</p>
+    </div>
+    <div class="wrap">
+      <div class="sdf-panel">
+        <div class="sdf-stage">
+          <span class="stage-tag">signed distance field · membrane = zero-level-set</span>
+          <canvas id="sdfCanvas"></canvas>
+        </div>
+        <div class="sdf-side">
+          <div class="readout" id="readout">
+            <div class="row"><span class="k">signed dist</span><span class="v" id="rDist">—</span></div>
+            <div class="row"><span class="k">verdict</span><span class="v" id="rSide">hover the field</span></div>
+          </div>
+          <div class="swatches">
+            <div class="sw"><span class="chip" style="background:var(--inside)"></span> inside · d &lt; 0 · licensed</div>
+            <div class="sw"><span class="chip" style="background:var(--gold)"></span> membrane · d = 0</div>
+            <div class="sw"><span class="chip" style="background:var(--outside)"></span> outside · d &gt; 0 · extracellular</div>
+          </div>
+          <div class="toggle" role="group" aria-label="scene">
+            <button id="bLeak" type="button" aria-pressed="true">show the leak</button>
+            <button id="bGate" type="button" aria-pressed="false">apply sign-gate</button>
+          </div>
+          <div class="verdict bad" id="verdict">A predicted organelle sits <b>outside</b> the membrane — a topological violation the voxel loss can't see.</div>
+          <div class="hint">live point-to-membrane SDF</div>
+        </div>
+      </div>
+      <p class="handoff col" style="margin-top:26px">We're not the first to point an SDF at EM. But no one is using it as a law.</p>
+    </div>
+  </section>
+
+  <section id="prior">
+    <div class="wrap col">
+      <div class="eyebrow">Prior work, and our angle</div>
+      <h2>Everyone's using the field. No one's using the sign.</h2>
+      <p>The signed-distance idea is well-trodden in segmentation — and just landed in EM. But every precedent treats the field as a <em>shape / smoothness</em> prior, never as a containment gate:</p>
+      <div class="cmp-wrap">
+        <table class="cmp">
+          <thead><tr><th>Prior work</th><th class="theirs">What the SDF is for</th></tr></thead>
+          <tbody>
+            <tr><th>Xue et al. · AAAI 2020</th><td class="theirs">regress a signed distance map as a <em>shape-smoothness</em> target for single organs</td></tr>
+            <tr><th>COSEM / CellMap · Nature 2021</th><td class="theirs">per-class signed distance as a <em>boundary readout</em>, thresholded to a mask</td></tr>
+            <tr><th>Spatial-SAM · CVPR 2026</th><td class="theirs">SDF as a cross-slice <em>consistency memory</em> for SAM2 · 2 classes (mito, nuclei)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="margin-top:24px"><strong>Our angle:</strong> we borrow the machinery that makes a learned field trustworthy — an <strong>Eikonal term</strong> (so the field is a true distance function and its zero-crossing lands on the bilayer) and <strong>dual-task SDF↔mask consistency</strong> (so containment holds even in unlabeled regions) — and we point it at the <em>sign</em>, as a licensed containment gate across a whole <strong>~48-class organelle hierarchy</strong>. A dedicated prior-art search this month confirmed it: that exact intersection — SDF-<em>sign</em> as a licensed, multi-compartment containment gate — is <strong>genuinely unclaimed</strong>.</p>
+      <div class="cmp-wrap" style="margin-top:20px">
+        <table class="cmp">
+          <thead><tr><th>Axis</th><th class="theirs">Prior SDF-in-EM</th><th class="ours">Ours · MAGC</th></tr></thead>
+          <tbody>
+            <tr><th>Role of the field</th><td class="theirs">shape / smoothness / boundary</td><td class="ours">sign = inside/outside <b>containment gate</b></td></tr>
+            <tr><th>Scope</th><td class="theirs">1–2 classes</td><td class="ours">~48-class containment DAG</td></tr>
+            <tr><th>Guarantee</th><td class="theirs">soft prior</td><td class="ours">violations → 0 <b>by construction</b></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="handoff col" style="margin-top:26px">So MAGF grows up — from <em>Feedback</em> to <em>Containment</em>.</p>
+    </div>
+  </section>
+
+  <section id="magc">
+    <div class="wrap col">
+      <div class="eyebrow">MAGF → MAGC</div>
+      <h2>Membrane-Aware Geometry <span style="color:var(--muted)">Feedback</span> becomes Geometric <span style="color:var(--gold)">Containment</span>.</h2>
+      <p>The rename <em>is</em> the fix. Replace the soft, ignorable bias with a learned <strong>membrane SDF head</strong> whose sign <em>gates</em> the organelle field. The geometry stops being advice and becomes structure — strict where biology is strict, permissive where it isn't:</p>
+      <div class="grid2">
+        <div class="card">
+          <h3><span class="tag strict">strict</span> Closed bags</h3>
+          <p>Mitochondria, nucleus, vesicles, lysosomes, peroxisomes — sealed compartments. Lumen strictly inside membrane; organelle strictly inside the cell. The sign-gate is <strong>hard</strong> here.</p>
+        </div>
+        <div class="card">
+          <h3><span class="tag perm">permissive</span> Sheets &amp; licensed holes</h3>
+          <p>ER and Golgi cisternae are open sheets — no closed inside. Nuclear pores are real holes; membrane-contact sites are real touches. The gate must <strong>allow</strong> these, or it's biologically wrong.</p>
+        </div>
+      </div>
+      <p style="margin-top:24px"><strong>Why this makes the biology better.</strong> A model that respects topology can't hallucinate an organelle in the ECS or a lumen with no wall — so the maps stay <em>legal</em>, and the measurements built on them (contact sites, volumes, mesh extractions) become trustworthy. And because it licenses the real exceptions instead of erasing them, it's accurate where a naive "strict-everywhere" model would delete a genuine nuclear pore.</p>
+      <p class="handoff">But there's a dimension we've been quietly ignoring — literally.</p>
+    </div>
+  </section>
+
+  <section id="dim">
+    <div class="wrap col">
+      <div class="eyebrow">The dimension problem</div>
+      <h2>Containment is a 3D fact. Our model has been reasoning in 2D.</h2>
+      <p>Our decoder is 2.5D — 896² tiles with a few context slices. But "inside" is a <em>3D enclosure</em>: a membrane has to close over in <em>z</em> to trap a lumen, and a leak that looks sealed on one slice is exposed on the next. A per-slice model can't verify 3D enclosure — so the sign it needed to learn (flip at the bilayer, <em>in 3D</em>) is exactly the thing 2D hides. That's a strong candidate for <em>why</em> the model never found the sign on its own.</p>
+    </div>
+    <div class="wrap">
+      <div class="dimrow">
+        <div>
+          <div class="zstack"><span class="sl"></span><span class="sl"></span><span class="sl"></span><span class="sl"></span></div>
+          <div class="dimcap">2D · per-slice</div>
+        </div>
+        <div class="dimarrow">→</div>
+        <div style="text-align:center"><div class="dimcube"></div></div>
+        <div class="dimtext">
+          <p style="font-size:15px;margin:0"><strong>The plan: 2D features, 3D geometry.</strong> Don't retrain a native 3D backbone — expensive, and it throws away DINOv3's pretraining. <strong>Cache</strong> the frozen DINOv3 features, then run a <strong>(2+1)D decoder over a z-window</strong> (2D spatial + 1D depth convolutions) that predicts a <strong>3D membrane SDF</strong>. The sign-gate enforces true closed surfaces in 3D — and the same field completes the cryo missing wedge. This is the flagship's capstone.</p>
+        </div>
+      </div>
+      <p class="handoff col" style="margin-top:28px">DINOv3 stays. The decoder grows a dimension.</p>
+    </div>
+  </section>
+
+  <section id="missing">
+    <div class="wrap col">
+      <div class="eyebrow">The two missing pieces</div>
+      <h2>Everything upstream is optimized. Two moves close the gap.</h2>
+      <p>The foundation — DINOv3, the two-stage decoder, the corrected readout — is tuned and working. The delta to state of the art isn't a new architecture. It's two things the current model provably lacks:</p>
+    </div>
+    <div class="wrap">
+      <div class="miss-grid">
+        <div class="miss">
+          <div class="miss-n">①</div>
+          <h3>The sign</h3>
+          <p class="miss-lead">a learned membrane SDF — <b>MAGC</b></p>
+          <p>Replace the ignorable soft bias with a signed-distance head whose sign <em>licenses</em> containment. Geometry stops being a suggestion and becomes a law — violations go to zero by construction.</p>
+        </div>
+        <div class="miss">
+          <div class="miss-n">②</div>
+          <h3>The dimension</h3>
+          <p class="miss-lead">pseudo-3D on cached DINOv3</p>
+          <p>Lift the per-slice features into a (2+1)D decoder so the sign-gate enforces true enclosure in 3D — where "inside" is actually defined, and where the sign finally has a bilayer to flip at.</p>
+        </div>
+      </div>
+      <p class="sota-line">Bolt both onto the optimized base — and this reaches its <span>state-of-the-art</span> form.</p>
+    </div>
+  </section>
+
+  <section id="forward">
+    <div class="wrap col">
+      <div class="eyebrow">Where this goes</div>
+      <h2>From a scaffold that leaks to a model that can't.</h2>
+      <p>The signed model we have is the <em>baseline the flagship beats</em> — its late leak is precisely the problem MAGC removes. The build order:</p>
+      <ol class="rungs">
+        <li><div class="rung-body"><b>MAGC kernel · 2.5D membrane sign-gate.</b><span>On the existing DINOv3 forward: a trained sign head supervised by signed distance to the membrane; child occupancy = own-sign ∧ parent-interior-sign at the readout. The smallest real piece of the flagship.</span></div></li>
+        <li><div class="rung-body"><b>Licensed geometry — the intellectual heart.</b><span>The strict / permissive / licensed table across the containment DAG: bags strict, sheets open, pores &amp; contacts licensed. Where "biologically accurate" is won.</span></div></li>
+        <li><div class="rung-body"><b>Cross-modal cryo — the Nature Methods leg.</b><span>The containment prior transfers to cryo-ET with composite-only labels: invariant biology, a new modality.</span></div></li>
+        <li><div class="rung-body"><b>3D flagship — the capstone.</b><span>Cached DINOv3 features → (2+1)D decoder over a z-window → 3D SDF: true closed surfaces and full missing-wedge completion. The "true biological decoder."</span></div></li>
+      </ol>
+      <p class="muted col" style="margin-top:28px;font-size:15px">Running now: an out-of-the-box nnU-Net baseline, fully verified, launching this week. The headline isn't Dice — it's topological validity: our readout produces zero containment violations where a voxel model structurally cannot.</p>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap backnav">
+    <span><a href="../../">← all meetings</a></span>
+    <span>Kasinath Lab · CU Boulder · internal</span>
+  </div>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+  var reduce = matchMedia("(prefers-reduced-motion:reduce)").matches;
+  var scorecard = null;   // sub-step controller for the findings slide (assigned by the viewer below)
+  function cssvar(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+  function hexRGB(h){h=h.replace('#','');if(h.length===3)h=h.split('').map(function(c){return c+c;}).join('');
+    return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
+  function mix(a,b,t){return [a[0]*(1-t)+b[0]*t, a[1]*(1-t)+b[1]*t, a[2]*(1-t)+b[2]*t];}
+
+  var btn=document.getElementById("themeBtn");
+  btn.addEventListener("click",function(){
+    var cur=document.documentElement.getAttribute("data-theme");
+    var sysDark=matchMedia("(prefers-color-scheme:dark)").matches;
+    document.documentElement.setAttribute("data-theme", cur ? (cur==="dark"?"light":"dark") : (sysDark?"light":"dark"));
+  });
+
+  var WW=100, WH=70;
+  function makeMembrane(cx,cy,r,n,wob,seed){
+    var pts=[],s=seed||1;
+    for(var i=0;i<n;i++){var a=i/n*Math.PI*2;
+      var rr=r*(1+wob*(Math.sin(a*3+s)*0.5+Math.sin(a*2-s*1.3)*0.34+Math.sin(a*5+s*0.7)*0.17));
+      pts.push([cx+Math.cos(a)*rr, cy+Math.sin(a)*rr]);}
+    return pts;
+  }
+  function sdPoly(px,py,poly){
+    var d=1e9,inside=false,n=poly.length;
+    for(var i=0,j=n-1;i<n;j=i++){
+      var xi=poly[i][0],yi=poly[i][1],xj=poly[j][0],yj=poly[j][1];
+      var vx=xj-xi,vy=yj-yi,wx=px-xi,wy=py-yi;
+      var t=Math.max(0,Math.min(1,(wx*vx+wy*vy)/(vx*vx+vy*vy||1)));
+      var ddx=px-(xi+t*vx),ddy=py-(yi+t*vy),dd=ddx*ddx+ddy*ddy; if(dd<d)d=dd;
+      if(((yi>py)!==(yj>py)) && (px<(xj-xi)*(py-yi)/((yj-yi)||1e-9)+xi)) inside=!inside;
+    }
+    d=Math.sqrt(d); return inside?-d:d;
+  }
+  function nearest(px,py,poly){
+    var best=[0,0],d=1e9,n=poly.length;
+    for(var i=0,j=n-1;i<n;j=i++){
+      var xi=poly[i][0],yi=poly[i][1],xj=poly[j][0],yj=poly[j][1];
+      var vx=xj-xi,vy=yj-yi,wx=px-xi,wy=py-yi;
+      var t=Math.max(0,Math.min(1,(wx*vx+wy*vy)/(vx*vx+vy*vy||1)));
+      var qx=xi+t*vx,qy=yi+t*vy,dd=(px-qx)*(px-qx)+(py-qy)*(py-qy);
+      if(dd<d){d=dd;best=[qx,qy];}
+    } return best;
+  }
+
+  var membrane=makeMembrane(44,35,21,88,0.14,0.6);
+  var legit={x:39,y:39,r:5.6}, leak={x:82,y:22,r:6.0};
+  var mode="leak", cursor=null;
+  var c=document.getElementById("sdfCanvas"), g=c.getContext("2d");
+  var CW=0,CH=0,DPR=1;
+  var FW=340,FH=238, fld=document.createElement("canvas"); fld.width=FW; fld.height=FH;
+  var fg=fld.getContext("2d");
+  function buildField(){
+    var img=fg.createImageData(FW,FH),data=img.data;
+    var inC=hexRGB(cssvar("--inside")),outC=hexRGB(cssvar("--outside")),
+        goldC=hexRGB(cssvar("--gold")),bg=hexRGB(cssvar("--stage-bg"));
+    for(var y=0;y<FH;y++)for(var x=0;x<FW;x++){
+      var wx=x/FW*WW, wy=y/FH*WH, d=sdPoly(wx,wy,membrane), i=(y*FW+x)*4, col;
+      var mag=Math.min(1,Math.abs(d)/23);
+      if(Math.abs(d)<0.7) col=goldC;
+      else if(d<0) col=mix(inC,bg,0.12+mag*0.72);
+      else col=mix(outC,bg,0.34+mag*0.6);
+      var ring=Math.abs((((d%6)+6)%6)-3)/3, sh=0.84+0.16*ring;
+      data[i]=col[0]*sh; data[i+1]=col[1]*sh; data[i+2]=col[2]*sh; data[i+3]=255;
+    }
+    fg.putImageData(img,0,0);
+  }
+  var scale=1,boxX=0,boxY=0;
+  function W2S(wx,wy){ return [boxX+wx*scale, boxY+wy*scale]; }
+  function resize(){
+    DPR=Math.min(2,window.devicePixelRatio||1);
+    CW=c.clientWidth; CH=c.clientHeight;
+    if(!CW||!CH) return;
+    c.width=Math.round(CW*DPR); c.height=Math.round(CH*DPR);
+    g.setTransform(DPR,0,0,DPR,0,0);
+    scale=Math.min(CW/WW,CH/WH); boxX=(CW-WW*scale)/2; boxY=(CH-WH*scale)/2;
+    draw();
+  }
+  function drawOrg(o,color,bad){
+    var p=W2S(o.x,o.y), r=o.r*scale;
+    g.beginPath(); g.arc(p[0],p[1],r,0,7);
+    g.globalAlpha=.26; g.fillStyle=color; g.fill(); g.globalAlpha=1;
+    g.lineWidth=2; g.strokeStyle=color; g.stroke();
+    if(bad){ g.fillStyle=color; g.font="700 12px "+cssvar("--mono"); g.textAlign="center"; g.textBaseline="middle";
+      g.fillText("LEAK",p[0],p[1]); }
+  }
+  function draw(){
+    if(!CW) return;
+    g.clearRect(0,0,CW,CH);
+    g.imageSmoothingEnabled=true;
+    g.drawImage(fld,0,0,FW,FH, boxX,boxY, WW*scale, WH*scale);
+    g.beginPath();
+    for(var i=0;i<membrane.length;i++){var p=W2S(membrane[i][0],membrane[i][1]); i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]);}
+    g.closePath(); g.lineWidth=2.4; g.strokeStyle=cssvar("--gold"); g.stroke();
+    drawOrg(legit,cssvar("--inside"),false);
+    if(mode==="leak"){ drawOrg(leak,cssvar("--leak"),true); }
+    else{
+      var p=W2S(leak.x,leak.y), r=leak.r*scale;
+      g.save(); g.setLineDash([4,4]); g.globalAlpha=.55;
+      g.beginPath(); g.arc(p[0],p[1],r,0,7); g.strokeStyle=cssvar("--faint"); g.lineWidth=1.4; g.stroke(); g.restore();
+      g.fillStyle=cssvar("--ok"); g.font="600 11px "+cssvar("--mono"); g.textAlign="center"; g.textBaseline="middle";
+      g.fillText("gated · d>0",p[0],p[1]);
+    }
+    if(cursor){
+      var d=sdPoly(cursor.x,cursor.y,membrane), np=nearest(cursor.x,cursor.y,membrane);
+      var cs=W2S(cursor.x,cursor.y), ns=W2S(np[0],np[1]);
+      g.save(); g.setLineDash([3,3]); g.globalAlpha=.9; g.strokeStyle=cssvar("--gold"); g.lineWidth=1.2;
+      g.beginPath(); g.moveTo(cs[0],cs[1]); g.lineTo(ns[0],ns[1]); g.stroke(); g.restore();
+      g.beginPath(); g.arc(ns[0],ns[1],3,0,7); g.fillStyle=cssvar("--gold"); g.fill();
+      g.beginPath(); g.arc(cs[0],cs[1],4.5,0,7); g.fillStyle=d<0?cssvar("--inside"):cssvar("--outside"); g.fill();
+    }
+  }
+  var rDist=document.getElementById("rDist"),rSide=document.getElementById("rSide");
+  c.addEventListener("pointermove",function(e){
+    var rect=c.getBoundingClientRect();
+    var sx=(e.clientX-rect.left)/rect.width*CW, sy=(e.clientY-rect.top)/rect.height*CH;
+    cursor={x:(sx-boxX)/scale, y:(sy-boxY)/scale};
+    var d=sdPoly(cursor.x,cursor.y,membrane);
+    rDist.textContent=(d<0?"−":"+")+Math.abs(d).toFixed(1);
+    var onMem=Math.abs(d)<0.8;
+    rDist.style.color=onMem?cssvar("--gold"):(d<0?cssvar("--inside"):cssvar("--outside"));
+    rSide.textContent=onMem?"on the bilayer":(d<0?"INSIDE · licensed":"OUTSIDE · forbidden");
+    rSide.style.color=onMem?cssvar("--gold"):(d<0?cssvar("--inside"):cssvar("--outside"));
+    draw();
+  });
+  c.addEventListener("pointerleave",function(){cursor=null;
+    rDist.textContent="—";rSide.textContent="hover the field";rDist.style.color="";rSide.style.color="";draw();});
+  var bLeak=document.getElementById("bLeak"),bGate=document.getElementById("bGate"),verdict=document.getElementById("verdict");
+  function setMode(m){
+    mode=m; bLeak.setAttribute("aria-pressed",m==="leak"); bGate.setAttribute("aria-pressed",m==="gate");
+    if(m==="leak"){verdict.className="verdict bad";
+      verdict.innerHTML="A predicted organelle sits <b>outside</b> the membrane — a topological violation the voxel loss can't see.";}
+    else{verdict.className="verdict good";
+      verdict.innerHTML="The sign says <b>d &gt; 0</b> there, so containment is <b>never granted</b>. The leak can't exist — by construction, not cleanup.";}
+    draw();
+  }
+  bLeak.addEventListener("click",function(){setMode("leak");});
+  bGate.addEventListener("click",function(){setMode("gate");});
+
+  /* ================= scorecard flip-through viewer (the 3 findings) ================= */
+  (function(){
+    var svc=document.getElementById("svCanvas"); if(!svc) return;
+    var x2=svc.getContext("2d");
+    var cell=makeMembrane(50,35,25,100,0.12,2.3), cc=[50,35];
+    function outside(a,push){for(var t=6;t<70;t++){var x=cc[0]+Math.cos(a)*t,y=cc[1]+Math.sin(a)*t;
+      if(sdPoly(x,y,cell)>0) return [cc[0]+Math.cos(a)*(t+push), cc[1]+Math.sin(a)*(t+push)];} return cc;}
+    var interior=[[41,30,4.2],[57,41,3.7],[46,47,3.1],[60,27,3.2],[35,39,2.9]];
+    var leaks=[-0.55,1.75,3.5].map(function(a){var p=outside(a,3.4);return [p[0],p[1],3.1];});
+    var SL=[
+      {num:"Δ≈0",lab:"causal effect",title:"The feedback is inert.",
+       text:"Toggle MAGF on and off — the organelle masks don't move. A soft additive bias is optional, and the network opts out. Its gate τc crawls to ~0.03 and plateaus.",
+       ctl:'<button id="svMagf" type="button" aria-pressed="false">MAGF bias: off</button>'},
+      {num:"2.4 px",lab:"from the membrane",title:"The leak is real and specific.",
+       text:"The model predicts organelles out in extracellular space, hugging the plasma membrane (median 2.4 px outside) — a scored error, and a late-training regression: the boundary scaffold unlearns while the lumens hold.",
+       ctl:'<span class="sv-note">3 organelles predicted outside the wall →</span>'},
+      {num:"→ 0",lab:"oracle sign-gate",title:"The cure exists.",
+       text:"Gate predictions by an oracle inside/outside sign and every leak vanishes — at zero cost to the real organelles inside. But no gate on the model's own sign works: it never learned to flip at the bilayer.",
+       ctl:'<button id="svGate" type="button" aria-pressed="false">apply oracle sign-gate</button>'}
+    ];
+    var slide=0, magf=false, gate=false;
+    var W2=0,H2=0,D2=1,s2=1,ox2=0,oy2=0;
+    function P(wx,wy){return [ox2+wx*s2, oy2+wy*s2];}
+    function cellPath(poly){x2.beginPath();for(var i=0;i<poly.length;i++){var p=P(poly[i][0],poly[i][1]);
+      i?x2.lineTo(p[0],p[1]):x2.moveTo(p[0],p[1]);}x2.closePath();}
+    function blob(o,color,ghost){var p=P(o[0],o[1]),r=o[2]*s2;
+      if(ghost){x2.save();x2.setLineDash([4,4]);x2.globalAlpha=.5;x2.beginPath();x2.arc(p[0],p[1],r,0,7);
+        x2.strokeStyle=cssvar("--faint");x2.lineWidth=1.4;x2.stroke();x2.restore();return;}
+      x2.beginPath();x2.arc(p[0],p[1],r,0,7);x2.globalAlpha=.28;x2.fillStyle=color;x2.fill();x2.globalAlpha=1;
+      x2.lineWidth=1.8;x2.strokeStyle=color;x2.stroke();}
+    function paint(){
+      if(!W2) return;
+      x2.clearRect(0,0,W2,H2);
+      cellPath(cell);x2.globalAlpha=.12;x2.fillStyle=cssvar("--inside");x2.fill();x2.globalAlpha=1;
+      if(slide===0&&magf){var inner=cell.map(function(p){return [cc[0]+(p[0]-cc[0])*0.9, cc[1]+(p[1]-cc[1])*0.9];});
+        cellPath(inner);x2.save();x2.setLineDash([5,4]);x2.globalAlpha=.75;x2.strokeStyle=cssvar("--outside");x2.lineWidth=1.6;x2.stroke();x2.restore();
+        x2.fillStyle=cssvar("--outside");x2.font="600 10px "+cssvar("--mono");x2.textAlign="center";x2.textBaseline="middle";
+        var mp=P(cc[0],cc[1]+16);x2.fillText("MAGF attention bias",mp[0],mp[1]);}
+      cellPath(cell);x2.lineWidth=2.6;x2.strokeStyle=cssvar("--gold");x2.stroke();
+      interior.forEach(function(o){blob(o,cssvar("--inside"),false);});
+      if(slide===1){
+        leaks.forEach(function(o){blob(o,cssvar("--leak"),false);});
+        var o=leaks[0],np=nearest(o[0],o[1],cell),a=P(o[0],o[1]),b=P(np[0],np[1]);
+        x2.save();x2.setLineDash([3,3]);x2.globalAlpha=.9;x2.strokeStyle=cssvar("--gold");x2.lineWidth=1.2;
+        x2.beginPath();x2.moveTo(a[0],a[1]);x2.lineTo(b[0],b[1]);x2.stroke();x2.restore();
+        x2.fillStyle=cssvar("--gold");x2.font="700 11px "+cssvar("--mono");x2.textAlign="center";x2.textBaseline="bottom";
+        x2.fillText("2.4 px",(a[0]+b[0])/2,(a[1]+b[1])/2-3);
+      }
+      if(slide===2){ leaks.forEach(function(o){blob(o,cssvar("--leak"),gate);}); }
+      var bd=document.getElementById("svBadge");
+      if(slide===0){bd.textContent="Δ predictions = 0.00";bd.style.background="color-mix(in oklab,var(--faint) 22%,transparent)";bd.style.color=cssvar("--muted");}
+      else if(slide===1){bd.textContent="3 leaks · 2.4 px out";bd.style.background="color-mix(in oklab,var(--leak) 20%,transparent)";bd.style.color=cssvar("--leak");}
+      else{bd.textContent=gate?"leak → 0 · kept 100%":"3 violations";
+        bd.style.background=gate?"color-mix(in oklab,var(--ok) 18%,transparent)":"color-mix(in oklab,var(--leak) 20%,transparent)";
+        bd.style.color=gate?cssvar("--ok"):cssvar("--leak");}
+    }
+    function rs(){D2=Math.min(2,window.devicePixelRatio||1);W2=svc.clientWidth;H2=svc.clientHeight;if(!W2||!H2)return;
+      svc.width=Math.round(W2*D2);svc.height=Math.round(H2*D2);x2.setTransform(D2,0,0,D2,0,0);
+      s2=Math.min(W2/100,H2/70);ox2=(W2-100*s2)/2;oy2=(H2-70*s2)/2;paint();}
+    function render(){
+      var s=SL[slide];
+      document.getElementById("svNum").innerHTML=s.num+'<small>'+s.lab+'</small>';
+      document.getElementById("svTitle").textContent=s.title;
+      document.getElementById("svText").textContent=s.text;
+      document.getElementById("svCtl").innerHTML=s.ctl;
+      document.getElementById("svStep").textContent="finding "+(slide+1)+" / 3";
+      var dots=document.querySelectorAll("#svDots i");for(var i=0;i<dots.length;i++)dots[i].className=(i===slide?"on":"");
+      document.getElementById("svPrev").disabled=(slide===0);
+      document.getElementById("svNext").disabled=(slide===2);
+      var mb=document.getElementById("svMagf");
+      if(mb)mb.addEventListener("click",function(){magf=!magf;mb.setAttribute("aria-pressed",magf);mb.textContent="MAGF bias: "+(magf?"on":"off");paint();});
+      var gb=document.getElementById("svGate");
+      if(gb)gb.addEventListener("click",function(){gate=!gate;gb.setAttribute("aria-pressed",gate);gb.textContent=gate?"remove sign-gate":"apply oracle sign-gate";paint();});
+      paint();
+    }
+    document.getElementById("svPrev").addEventListener("click",function(){if(slide>0){slide--;magf=false;gate=false;render();}});
+    document.getElementById("svNext").addEventListener("click",function(){if(slide<2){slide++;magf=false;gate=false;render();}});
+    if(window.ResizeObserver) new ResizeObserver(rs).observe(svc);
+    window.addEventListener("resize",rs);
+    new MutationObserver(paint).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+    // expose sub-step control so the main deck arrows walk the 3 findings before leaving this slide
+    scorecard = {
+      el: document.getElementById("scorecard"),
+      atFirst: function(){ return slide===0; },
+      atLast: function(){ return slide===2; },
+      next: function(){ if(slide<2){slide++;magf=false;gate=false;render();} },
+      prev: function(){ if(slide>0){slide--;magf=false;gate=false;render();} },
+      toFirst: function(){ slide=0;magf=false;gate=false;render(); },
+      toLast: function(){ slide=2;magf=false;gate=false;render(); }
+    };
+    render(); rs();
+  })();
+
+  var hc=document.getElementById("heroCanvas"),hx=hc.getContext("2d"),hPoly,hW,hH;
+  function hResize(){
+    var dpr=Math.min(2,window.devicePixelRatio||1);
+    hW=hc.clientWidth; hH=hc.clientHeight;
+    hc.width=Math.round(hW*dpr); hc.height=Math.round(hH*dpr); hx.setTransform(dpr,0,0,dpr,0,0);
+    hPoly=makeMembrane(hW*0.64,hH*0.5,Math.min(hW,hH)*0.36,110,0.16,1.1);
+  }
+  function hDraw(t){
+    if(!hW) hResize();
+    hx.clearRect(0,0,hW,hH);
+    var step=18, ph=(t||0)*0.0004, inC=cssvar("--inside"), outC=cssvar("--outside");
+    for(var y=0;y<hH;y+=step)for(var x=0;x<hW;x+=step){
+      var d=sdPoly(x,y,hPoly), band=Math.abs(Math.sin(d*0.05-ph)),
+          a=Math.max(0,0.5-Math.abs(d)/560)*0.46*band;
+      if(a<0.012) continue;
+      hx.globalAlpha=a; hx.fillStyle=(d<0?inC:outC); hx.fillRect(x,y,step-3,step-3);
+    }
+    hx.globalAlpha=.45; hx.beginPath();
+    for(var i=0;i<hPoly.length;i++){var p=hPoly[i]; i?hx.lineTo(p[0],p[1]):hx.moveTo(p[0],p[1]);}
+    hx.closePath(); hx.strokeStyle=cssvar("--gold"); hx.lineWidth=1.5; hx.stroke(); hx.globalAlpha=1;
+    if(!reduce) requestAnimationFrame(hDraw);
+  }
+
+  new MutationObserver(function(){ buildField(); draw(); hResize(); if(reduce) hDraw(0); })
+    .observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+  if(window.ResizeObserver){ new ResizeObserver(function(){resize();}).observe(c);
+    new ResizeObserver(function(){hResize(); if(reduce) hDraw(0);}).observe(hc); }
+  window.addEventListener("resize",function(){resize(); hResize(); if(reduce) hDraw(0);});
+
+  buildField(); resize();
+  hResize(); if(reduce){ hDraw(0); } else { requestAnimationFrame(hDraw); }
+
+  /* ================= deck navigation: present slide-by-slide ================= */
+  (function(){
+    var slides=[].slice.call(document.querySelectorAll(".hero, main > section"));
+    var prog=document.getElementById("progress"), cnt=document.getElementById("deckCount"),
+        dp=document.getElementById("deckPrev"), dn=document.getElementById("deckNext");
+    function curr(){var y=window.scrollY+window.innerHeight*0.45,idx=0;
+      for(var i=0;i<slides.length;i++){ if(slides[i].offsetTop<=y) idx=i; } return idx;}
+    function upd(i){ if(i==null)i=curr();
+      prog.style.width=((i+1)/slides.length*100)+"%";
+      cnt.textContent=(i+1)+" / "+slides.length;
+      dp.disabled=(i===0); dn.disabled=(i===slides.length-1); }
+    function go(i,dir){ i=Math.max(0,Math.min(slides.length-1,i));
+      slides[i].scrollIntoView({behavior:reduce?"auto":"smooth",block:"start"});
+      if(scorecard && slides[i]===scorecard.el){ if(dir==="back") scorecard.toLast(); else scorecard.toFirst(); }
+      upd(i); }
+    function nextStep(){ var i=curr();
+      if(scorecard && slides[i]===scorecard.el && !scorecard.atLast()){ scorecard.next(); return; }
+      go(i+1,"fwd"); }
+    function prevStep(){ var i=curr();
+      if(scorecard && slides[i]===scorecard.el && !scorecard.atFirst()){ scorecard.prev(); return; }
+      go(i-1,"back"); }
+    dp.addEventListener("click",function(){prevStep();});
+    dn.addEventListener("click",function(){nextStep();});
+    document.addEventListener("keydown",function(e){
+      var isBtn=e.target&&e.target.tagName==="BUTTON";
+      if(e.key==="ArrowRight"||e.key==="PageDown"||(e.key===" "&&!isBtn)){ e.preventDefault(); nextStep(); }
+      else if(e.key==="ArrowLeft"||e.key==="PageUp"){ e.preventDefault(); prevStep(); }
+    });
+    var tick=false;
+    window.addEventListener("scroll",function(){ if(!tick){tick=true;requestAnimationFrame(function(){upd();tick=false;});} },{passive:true});
+    upd(0);
+  })();
+})();
+</script>
+
+</body>
+</html>
