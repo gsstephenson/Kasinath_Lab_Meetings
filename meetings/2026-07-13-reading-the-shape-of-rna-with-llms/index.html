@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Reading the Shape of RNA with LLMs — Kasinath Lab</title>
+</head>
+<body>
+<style>
+  * { box-sizing: border-box; }
+
+  /* ---------- tokens: light is the base; dark + explicit theme override it ---------- */
+  :root{
+    --ground:#eef3f2; --ground-2:#ffffff; --panel:#f6faf9;
+    --ink:#0f2a2e; --ink-dim:#4c6763; --line:rgba(18,60,55,.14); --line-2:rgba(18,60,55,.08);
+    --teal:#118577; --teal-soft:#4bb3a4; --amber:#c9762a; --amber-soft:#e0994e;
+    --shadow:0 1px 2px rgba(12,40,38,.06),0 12px 34px rgba(12,40,38,.10);
+    --font-display:"Iowan Old Style","Palatino Linotype","Book Antiqua",Palatino,Charter,Georgia,serif;
+    --font-body:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --font-mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --maxw:1040px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --ground:#0a1a1d; --ground-2:#0f2429; --panel:#102a30;
+      --ink:#e9f4f1; --ink-dim:#9ab6b1; --line:rgba(150,196,189,.16); --line-2:rgba(150,196,189,.09);
+      --teal:#3ccbb8; --teal-soft:#2b9083; --amber:#f2b063; --amber-soft:#b9803f;
+      --shadow:0 1px 2px rgba(0,0,0,.4),0 18px 44px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0a1a1d; --ground-2:#0f2429; --panel:#102a30;
+    --ink:#e9f4f1; --ink-dim:#9ab6b1; --line:rgba(150,196,189,.16); --line-2:rgba(150,196,189,.09);
+    --teal:#3ccbb8; --teal-soft:#2b9083; --amber:#f2b063; --amber-soft:#b9803f;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 18px 44px rgba(0,0,0,.5);
+  }
+  :root[data-theme="light"]{
+    --ground:#eef3f2; --ground-2:#ffffff; --panel:#f6faf9;
+    --ink:#0f2a2e; --ink-dim:#4c6763; --line:rgba(18,60,55,.14); --line-2:rgba(18,60,55,.08);
+    --teal:#118577; --teal-soft:#4bb3a4; --amber:#c9762a; --amber-soft:#e0994e;
+    --shadow:0 1px 2px rgba(12,40,38,.06),0 12px 34px rgba(12,40,38,.10);
+  }
+
+  html,body{margin:0;height:100%;}
+  body{
+    background:var(--ground); color:var(--ink);
+    font-family:var(--font-body); line-height:1.55;
+    -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+  }
+  .app{display:flex;flex-direction:column;height:100dvh;overflow:hidden;}
+
+  /* ---------- top bar ---------- */
+  .topbar{
+    flex:0 0 auto;display:flex;align-items:center;gap:16px;
+    padding:12px clamp(14px,3vw,30px);
+    border-bottom:1px solid var(--line);background:var(--ground);z-index:6;
+  }
+  .brand{display:flex;align-items:baseline;gap:10px;min-width:0;}
+  .brand .mark{font-family:var(--font-mono);color:var(--teal);font-size:.82rem;letter-spacing:.08em;font-weight:600;}
+  .brand .ttl{font-family:var(--font-display);font-size:.98rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .brand .ttl b{color:var(--ink);}
+  .topbar .spacer{flex:1;}
+  .counter{font-family:var(--font-mono);font-size:.82rem;color:var(--ink-dim);font-variant-numeric:tabular-nums;letter-spacing:.04em;}
+  .tbtn{
+    font-family:var(--font-mono);font-size:.75rem;letter-spacing:.03em;
+    color:var(--ink-dim);background:transparent;border:1px solid var(--line);
+    padding:6px 11px;border-radius:8px;cursor:pointer;transition:.18s;white-space:nowrap;
+  }
+  .tbtn:hover{color:var(--ink);border-color:var(--teal-soft);}
+  .tbtn[aria-pressed="true"]{color:var(--ground);background:var(--teal);border-color:var(--teal);}
+  .khint{font-family:var(--font-mono);font-size:.72rem;color:var(--ink-dim);opacity:.75;}
+  @media (max-width:680px){ .khint{display:none;} .brand .ttl{display:none;} }
+
+  /* ---------- deck / slides ---------- */
+  .deck{flex:1 1 auto;position:relative;overflow:hidden;}
+  .progress{position:absolute;top:0;left:0;height:2px;background:var(--teal);width:0;z-index:5;transition:width .35s ease;}
+  .slide{
+    position:absolute;inset:0;overflow-y:auto;
+    display:flex;flex-direction:column;justify-content:safe center;
+    padding:clamp(20px,4.5vw,64px) clamp(18px,5vw,72px);
+    opacity:0;visibility:hidden;transform:translateY(14px);
+    transition:opacity .4s ease,transform .4s ease,visibility .4s;
+  }
+  .slide.active{opacity:1;visibility:visible;transform:none;}
+  .slide-inner{width:100%;max-width:var(--maxw);margin:0 auto;}
+  @media (prefers-reduced-motion:reduce){ .slide{transition:opacity .01s;transform:none;} }
+
+  .eyebrow{
+    font-family:var(--font-mono);font-size:.76rem;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--teal);margin:0 0 14px;font-weight:600;
+  }
+  .eyebrow .db{color:var(--amber);letter-spacing:.02em;}
+  h1{font-family:var(--font-display);font-weight:600;line-height:1.02;letter-spacing:-.01em;
+     font-size:clamp(2.3rem,6.4vw,4.5rem);margin:.1em 0 .3em;text-wrap:balance;}
+  h2{font-family:var(--font-display);font-weight:600;line-height:1.06;letter-spacing:-.01em;
+     font-size:clamp(1.7rem,4.2vw,2.9rem);margin:0 0 .5em;text-wrap:balance;}
+  h3{font-family:var(--font-display);font-weight:600;font-size:clamp(1.05rem,2vw,1.3rem);margin:0 0 .3em;}
+  p{margin:0 0 1em;max-width:66ch;}
+  .lede{font-size:clamp(1.05rem,2vw,1.32rem);color:var(--ink);max-width:60ch;}
+  .dim{color:var(--ink-dim);}
+  strong{color:var(--ink);font-weight:650;}
+  .teal{color:var(--teal);} .amber{color:var(--amber);}
+  .mono{font-family:var(--font-mono);}
+  .sub{font-family:var(--font-mono);font-size:.8rem;color:var(--ink-dim);letter-spacing:.02em;}
+
+  /* two-column split for content slides */
+  .split{display:grid;grid-template-columns:1.1fr .9fr;gap:clamp(24px,4vw,56px);align-items:center;}
+  @media (max-width:860px){ .split{grid-template-columns:1fr;gap:28px;} .split .art{order:-1;} }
+
+  /* ---------- title slide meta ---------- */
+  .meta{margin-top:26px;font-family:var(--font-mono);font-size:.86rem;color:var(--ink-dim);line-height:1.9;}
+  .meta b{color:var(--ink);font-weight:600;}
+  .title-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:clamp(24px,4vw,56px);align-items:center;}
+  @media (max-width:860px){ .title-grid{grid-template-columns:1fr;} }
+
+  /* ---------- stat chips ---------- */
+  .stats{display:flex;flex-wrap:wrap;gap:14px;margin-top:8px;}
+  .stat{background:var(--ground-2);border:1px solid var(--line);border-radius:14px;padding:14px 18px;box-shadow:var(--shadow);}
+  .stat .num{font-family:var(--font-display);font-size:clamp(1.7rem,3.4vw,2.4rem);font-weight:600;line-height:1;color:var(--teal);font-variant-numeric:tabular-nums;}
+  .stat .num.amber{color:var(--amber);}
+  .stat .lab{font-family:var(--font-mono);font-size:.72rem;letter-spacing:.03em;color:var(--ink-dim);margin-top:6px;text-transform:uppercase;}
+
+  /* ---------- lists ---------- */
+  ul.clean{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:12px;}
+  ul.clean li{position:relative;padding-left:26px;max-width:64ch;}
+  ul.clean li::before{content:"";position:absolute;left:2px;top:.62em;width:9px;height:9px;border-radius:50%;
+    background:var(--teal);box-shadow:0 0 0 4px color-mix(in srgb,var(--teal) 18%,transparent);}
+  ul.clean li.amb::before{background:var(--amber);box-shadow:0 0 0 4px color-mix(in srgb,var(--amber) 18%,transparent);}
+  ul.clean li b{color:var(--ink);}
+
+  /* ---------- dot-bracket example ---------- */
+  .dbx{font-family:var(--font-mono);background:var(--ground-2);border:1px solid var(--line);border-radius:14px;
+    padding:18px 20px;box-shadow:var(--shadow);display:inline-block;line-height:2.1;}
+  .dbx .row{display:flex;gap:.55ch;font-size:clamp(.95rem,1.7vw,1.25rem);}
+  .dbx .row .lab{color:var(--ink-dim);width:3.5ch;display:inline-block;text-align:right;margin-right:1ch;font-size:.8em;}
+  .dbx .seq span{color:var(--ink);}
+  .dbx .brk .op{color:var(--teal);font-weight:700;} .dbx .brk .cl{color:var(--teal);font-weight:700;}
+  .dbx .brk .dot{color:var(--ink-dim);}
+  .dbx .brk .lr{color:var(--amber);font-weight:700;}
+
+  /* ---------- pipeline ---------- */
+  .pipe{display:flex;flex-wrap:wrap;align-items:stretch;gap:10px;margin-top:10px;}
+  .stage{flex:1 1 150px;min-width:150px;background:var(--ground-2);border:1px solid var(--line);border-radius:14px;
+    padding:14px 15px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:6px;}
+  .stage .st-top{display:flex;align-items:center;gap:8px;}
+  .stage .tag{font-family:var(--font-mono);font-size:.64rem;letter-spacing:.06em;text-transform:uppercase;
+    padding:2px 7px;border-radius:6px;font-weight:600;}
+  .stage.frozen{border-color:color-mix(in srgb,var(--teal) 45%,var(--line));}
+  .stage.frozen .tag{color:var(--teal);background:color-mix(in srgb,var(--teal) 14%,transparent);}
+  .stage.trained{border-color:color-mix(in srgb,var(--amber) 55%,var(--line));}
+  .stage.trained .tag{color:var(--amber);background:color-mix(in srgb,var(--amber) 15%,transparent);}
+  .stage h4{font-family:var(--font-display);font-size:1rem;margin:0;font-weight:600;}
+  .stage p{font-size:.82rem;color:var(--ink-dim);margin:0;max-width:none;}
+  .arrow{align-self:center;color:var(--ink-dim);font-family:var(--font-mono);font-size:1.1rem;flex:0 0 auto;}
+  @media (max-width:760px){ .arrow{transform:rotate(90deg);} .stage{flex-basis:100%;} }
+
+  /* ---------- results table ---------- */
+  .tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);background:var(--ground-2);}
+  table{border-collapse:collapse;width:100%;font-size:clamp(.82rem,1.5vw,.98rem);}
+  th,td{padding:11px 14px;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
+  th:first-child,td:first-child{text-align:left;}
+  thead th{font-family:var(--font-mono);font-size:.72rem;letter-spacing:.03em;text-transform:uppercase;color:var(--ink-dim);
+    border-bottom:1px solid var(--line);font-weight:600;}
+  tbody td{border-bottom:1px solid var(--line-2);}
+  tbody tr:last-child td{border-bottom:none;}
+  td.ours{color:var(--teal);font-weight:700;background:color-mix(in srgb,var(--teal) 8%,transparent);}
+  th.ours{color:var(--teal);}
+  tr.pooled td{border-top:1px solid var(--line);font-weight:600;background:var(--line-2);}
+  tr.pooled td.ours{background:color-mix(in srgb,var(--teal) 14%,transparent);}
+
+  /* ---------- bars ---------- */
+  .bars{display:flex;flex-direction:column;gap:12px;margin-top:6px;}
+  .bar{display:grid;grid-template-columns:120px 1fr 62px;align-items:center;gap:12px;}
+  .bar .bl{font-family:var(--font-mono);font-size:.8rem;color:var(--ink-dim);}
+  .bar .track{height:16px;border-radius:8px;background:var(--line-2);overflow:hidden;}
+  .bar .fill{height:100%;border-radius:8px;background:linear-gradient(90deg,var(--teal-soft),var(--teal));width:0;transition:width .9s cubic-bezier(.2,.7,.2,1);}
+  .bar.us .fill{background:linear-gradient(90deg,var(--amber-soft),var(--amber));}
+  .slide.active .bar .fill{width:var(--w);}
+  .bar .bv{font-family:var(--font-mono);font-size:.82rem;text-align:right;font-variant-numeric:tabular-nums;color:var(--ink);}
+  .bar.us .bl,.bar.us .bv{color:var(--amber);font-weight:700;}
+
+  /* ---------- timeline ---------- */
+  .tl{display:flex;flex-direction:column;gap:0;margin-top:6px;}
+  .tl .step{display:grid;grid-template-columns:34px 1fr;gap:14px;padding-bottom:13px;position:relative;}
+  .tl .step:not(:last-child)::before{content:"";position:absolute;left:16px;top:30px;bottom:-2px;width:2px;background:var(--line);}
+  .tl .dot{width:34px;height:34px;border-radius:50%;border:2px solid var(--teal);background:var(--ground);
+    display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-weight:700;font-size:.85rem;color:var(--teal);z-index:1;}
+  .tl .step.win .dot{border-color:var(--amber);color:var(--amber);}
+  .tl .step.parked .dot{border-color:var(--ink-dim);color:var(--ink-dim);}
+  .tl .body h4{font-family:var(--font-display);font-size:1rem;margin:.1em 0 .12em;font-weight:600;}
+  .tl .body p{font-size:.87rem;color:var(--ink-dim);margin:0;max-width:62ch;line-height:1.4;}
+  .tl .body .k{font-family:var(--font-mono);font-size:.78rem;color:var(--teal);}
+  .tl .step.win .k{color:var(--amber);}
+
+  /* ---------- contact-map art ---------- */
+  .art{display:flex;justify-content:center;}
+  .cmap{width:min(100%,380px);}
+  .cmap .frame{fill:var(--ground-2);stroke:var(--line);}
+  .cmap .grid{stroke:var(--line-2);stroke-width:.5;}
+  .cmap .diag{stroke:var(--teal);stroke-width:2.4;opacity:.9;stroke-linecap:round;}
+  .cmap .loc{fill:var(--teal-soft);}
+  .cmap .lr{fill:var(--amber);opacity:0;transform-origin:center;transform-box:fill-box;}
+  .slide.active .cmap .lr{animation:pop .5s ease forwards;}
+  .cmap .lr:nth-of-type(1){animation-delay:.35s} .cmap .lr:nth-of-type(2){animation-delay:.5s}
+  .cmap .lr:nth-of-type(3){animation-delay:.65s} .cmap .lr:nth-of-type(4){animation-delay:.8s}
+  .cmap .lr:nth-of-type(5){animation-delay:.95s} .cmap .lr:nth-of-type(6){animation-delay:1.1s}
+  .cmap .lr:nth-of-type(7){animation-delay:1.25s} .cmap .lr:nth-of-type(8){animation-delay:1.4s}
+  @keyframes pop{from{opacity:0;transform:scale(.2)}to{opacity:.95;transform:scale(1)}}
+  @media (prefers-reduced-motion:reduce){ .cmap .lr{opacity:.95;animation:none;} }
+  .cmlegend{display:flex;gap:18px;justify-content:center;margin-top:12px;font-family:var(--font-mono);font-size:.74rem;color:var(--ink-dim);}
+  .cmlegend span{display:inline-flex;align-items:center;gap:7px;}
+  .cmlegend i{width:11px;height:11px;border-radius:3px;display:inline-block;}
+
+  /* ---------- nav ---------- */
+  .nav{position:absolute;top:50%;transform:translateY(-50%);z-index:4;}
+  .nav button{width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:color-mix(in srgb,var(--ground-2) 80%,transparent);
+    color:var(--ink-dim);font-size:1.1rem;cursor:pointer;transition:.18s;backdrop-filter:blur(4px);}
+  .nav button:hover{color:var(--ink);border-color:var(--teal);}
+  .nav.prev{left:clamp(6px,1.5vw,18px);} .nav.next{right:clamp(6px,1.5vw,18px);}
+  .dots{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:9px;z-index:4;}
+  .dots button{width:9px;height:9px;border-radius:50%;border:none;padding:0;background:var(--line);cursor:pointer;transition:.2s;}
+  .dots button.on{background:var(--teal);transform:scale(1.35);}
+  @media (max-width:680px){ .nav{display:none;} }
+
+  /* ---------- notes drawer ---------- */
+  .notes{flex:0 0 auto;height:0;overflow:hidden;background:var(--panel);border-top:1px solid var(--line);
+    transition:height .3s ease;}
+  .app.notes-open .notes{height:min(38vh,320px);}
+  .notes-in{height:100%;overflow-y:auto;padding:16px clamp(16px,4vw,40px);max-width:var(--maxw);margin:0 auto;}
+  .notes-head{font-family:var(--font-mono);font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--amber);margin-bottom:8px;}
+  .notes-body{font-size:.92rem;color:var(--ink);}
+  .notes-body p{margin:0 0 .7em;max-width:82ch;} .notes-body ul{margin:.2em 0 .8em;padding-left:20px;}
+  .notes-body li{margin-bottom:.35em;} .notes-body b{color:var(--teal);}
+  .notes-src{display:none;}
+
+  /* ---------- print: handout with notes ---------- */
+  @media print{
+    .topbar,.nav,.dots,.progress{display:none!important;}
+    .app{height:auto;display:block;} .deck{position:static;overflow:visible;}
+    .slide{position:static;opacity:1!important;visibility:visible!important;transform:none!important;
+      page-break-after:always;min-height:60vh;border-bottom:2px solid #999;}
+    .notes{height:auto!important;overflow:visible;} .notes-src{display:block!important;padding:8px 0;border-top:1px dashed #999;}
+    .notes-src::before{content:"Speaker notes";font-weight:700;display:block;margin-bottom:4px;}
+  }
+</style>
+
+<div class="app" id="app">
+  <header class="topbar">
+    <div class="brand">
+      <span class="ttl"><b>Reading the Shape of RNA with LLMs</b></span>
+    </div>
+    <span class="spacer"></span>
+    <span class="khint">← → move · N notes</span>
+    <span class="counter" id="counter">01 / 11</span>
+    <button class="tbtn" id="notesToggle" aria-pressed="false">Notes</button>
+    <button class="tbtn" id="themeToggle" title="Toggle light / dark">◐ Theme</button>
+  </header>
+
+  <main class="deck" id="deck">
+    <div class="progress" id="progress"></div>
+
+    <!-- 1 · TITLE -->
+    <section class="slide active">
+      <div class="slide-inner">
+        <div class="title-grid">
+          <div>
+            <p class="eyebrow">RNA secondary-structure prediction</p>
+            <h1>Reading the Shape of RNA<br>with LLMs</h1>
+            <p class="lede">A machine-learning pipeline that predicts how an RNA molecule folds onto itself — and <span class="teal">matches or beats the best tools in the world on every length of RNA.</span></p>
+            <div class="meta">
+              Presented by <b>Vedanth Murari</b><br>
+              Undergraduate researcher, Kasinath Lab &nbsp;·&nbsp; July 2026<br>
+              <span class="dim">Backbone: DGRNA (frozen) &nbsp;·&nbsp; pooled micro-F1 <b>0.898</b></span>
+            </div>
+          </div>
+          <div class="art">
+            <div>
+              <svg class="cmap" viewBox="0 0 200 200" role="img" aria-label="RNA contact map: teal diagonal of local pairs, amber off-diagonal long-range pairs">
+                <rect class="frame" x="6" y="6" width="188" height="188" rx="12"/>
+                <g class="grid">
+                  <line x1="53" y1="6" x2="53" y2="194"/><line x1="100" y1="6" x2="100" y2="194"/><line x1="147" y1="6" x2="147" y2="194"/>
+                  <line x1="6" y1="53" x2="194" y2="53"/><line x1="6" y1="100" x2="194" y2="100"/><line x1="6" y1="147" x2="194" y2="147"/>
+                </g>
+                <line class="diag" x1="14" y1="14" x2="186" y2="186"/>
+                <g>
+                  <circle class="loc" cx="40" cy="30" r="2.6"/><circle class="loc" cx="30" cy="40" r="2.6"/>
+                  <circle class="loc" cx="150" cy="140" r="2.6"/><circle class="loc" cx="140" cy="150" r="2.6"/>
+                  <circle class="loc" cx="95" cy="82" r="2.6"/><circle class="loc" cx="82" cy="95" r="2.6"/>
+                </g>
+                <circle class="lr" cx="150" cy="46" r="4"/><circle class="lr" cx="46" cy="150" r="4"/>
+                <circle class="lr" cx="168" cy="70" r="4"/><circle class="lr" cx="70" cy="168" r="4"/>
+                <circle class="lr" cx="120" cy="34" r="4"/><circle class="lr" cx="34" cy="120" r="4"/>
+                <circle class="lr" cx="176" cy="110" r="4"/><circle class="lr" cx="110" cy="176" r="4"/>
+              </svg>
+              <div class="cmlegend">
+                <span><i style="background:var(--teal)"></i> local pairs</span>
+                <span><i style="background:var(--amber)"></i> long-range pairs</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="notes-src">
+        <p><b>Opening (about 1 min).</b> "Every RNA in your cells starts as a plain string of four letters — but it doesn't stay a string. It folds up and snaps onto itself, and that <em>shape</em> is what decides the molecule's job."</p>
+        <p>The whole project answers one question: <b>given just the letters, can we predict which letters pair up — i.e., the shape?</b></p>
+        <p>The picture on the right is the object at the heart of everything: a <b>contact map</b>. Teal dots on the diagonal = letters that pair with a close-by neighbour (easy). The amber dots far off the diagonal = letters that pair across a huge distance (hard — and the thing older tools missed completely). Tell them: "By the end you'll know how we light up those amber dots."</p>
+        <p>Remember to swap in your name / course before presenting.</p>
+      </div>
+    </section>
+
+    <!-- 2 · THE PROBLEM -->
+    <section class="slide">
+      <div class="slide-inner">
+        <p class="eyebrow">The problem</p>
+        <h2>RNA is a string of letters<br>that folds onto itself</h2>
+        <div class="split">
+          <div>
+            <ul class="clean">
+              <li>An RNA is a chain of four letters — <span class="mono">A · U · G · C</span>.</li>
+              <li>The letters <b>pair up</b> by a simple rule: <span class="mono teal">A–U</span> and <span class="mono teal">G–C</span>. Those pairs pin the chain into loops and stems.</li>
+              <li>Which letters pair = the <b>secondary structure</b>. It's the molecule's folded shape.</li>
+              <li class="amb">The shape decides the <b>function</b> — same letters, wrong fold, wrong job. Like origami: one flat sheet becomes a crane <em>or</em> a boat depending only on the folds.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="dbx">
+              <div class="row"><span class="lab">seq</span><span class="seq"><span>G</span> <span>G</span> <span>G</span> <span>A</span> <span>A</span> <span>A</span> <span>C</span> <span>C</span> <span>C</span></span></div>
+              <div class="row"><span class="lab">fold</span><span class="brk"><span class="op">(</span> <span class="op">(</span> <span class="op">(</span> <span class="dot">.</span> <span class="dot">.</span> <span class="dot">.</span> <span class="cl">)</span> <span class="cl">)</span> <span class="cl">)</span></span></div>
+              <div class="row"><span class="lab"></span><span class="sub">( ) = a pair &nbsp;·&nbsp; . = unpaired</span></div>
+            </div>
+            <p class="sub" style="margin-top:14px;max-width:34ch;">Scientists write the fold as matching brackets — a "dot-bracket" string. Our job: predict this from the top row alone.</p>
+          </div>
+        </div>
+      </div>
+      <div class="notes-src">
+        <p><b>Goal of this slide:</b> make sure the least-technical person in the room understands "base pairing" and "secondary structure."</p>
+        <p>Analogy to say out loud: "Think of a shoelace with little magnets along it. Left alone it collapses into a shape as the magnets click together. The letters are the magnets; <b>A clicks to U, G clicks to C</b>. Knowing which magnets clicked tells you the shape."</p>
+        <p>Point at the bracket example: "Three G's at the start pair with three C's at the end — that's the three brackets closing. The A's in the middle are a loop — the dots. This little hairpin is the simplest fold there is."</p>
+        <p>Why care (one line): the fold controls whether the RNA switches a gene on, builds a protein, or is a drug target. Predicting it fast, from sequence, is genuinely useful.</p>
+      </div>
+    </section>
+
+    <!-- 3 · THE BIG IDEA -->
+    <section class="slide">
+      <div class="slide-inner">
+        <p class="eyebrow">The big idea</p>
+        <h2>Stand on the shoulders<br>of a large RNA model</h2>
+        <div class="split">
+          <div>
+            <p class="lede">Instead of building a huge model from scratch, we borrow one that already "knows" RNA — and train only a tiny piece.</p>
+            <ul class="clean">
+              <li><b>The model (frozen):</b> <span class="teal">DGRNA</span> — a ~100-million-parameter model that has read enormous amounts of RNA. We <b>never change it.</b> 🔒</li>
+              <li class="amb"><b>The assistant (trained):</b> a small "probe head" we train to turn the model's knowledge into a <b>map of which letters pair.</b></li>
+              <li>Freezing the model is cheap, fast, and honest — it measures what the <b>model already understands</b>, not how big an add-on we can train.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="stats" style="flex-direction:column;align-items:stretch;">
+              <div class="stat"><div class="num">100M</div><div class="lab">frozen backbone parameters</div></div>
+              <div class="stat"><div class="num amber">~0.4M</div><div class="lab">trained probe-head parameters</div></div>
+              <div class="stat"><div class="num">2-way</div><div class="lab">reads letters in both directions</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="notes-src">
+        <p><b>Core message:</b> this is "transfer learning" / a "probe" — but say it in plain words.</p>
+        <p>Analogy: "Imagine hiring an expert who has read every RNA ever written. You don't retrain the expert — you just teach a small intern to ask the expert the one question you care about: <b>which letters pair?</b> The expert is frozen; only the intern learns."</p>
+        <p>Emphasize the parameter gap on the right: we train <b>~0.4 million</b> knobs on top of <b>100 million</b> frozen ones. That's why it's fast and cheap.</p>
+        <p>"Both directions" matters: a base pair depends on letters that come <em>before and after</em>. We actually tested one-direction models — they were far worse. Reading both ways is essential for pairing. (Backbone bake-off: DGRNA 0.74 vs one-direction models ~0.39–0.44.)</p>
+      </div>
+    </section>
+
+    <!-- 4 · THE PIPELINE -->
+    <section class="slide">
+      <div class="slide-inner">
+        <p class="eyebrow">The final build · end to end</p>
+        <h2>The pipeline</h2>
+        <p class="dim" style="max-width:70ch;">From a raw sequence to a clean list of base pairs. Only the <span class="amber">amber</span> box is trained; the <span class="teal">teal</span> model stays frozen.</p>
+        <div class="pipe">
+          <div class="stage"><div class="st-top"><span class="tag">input</span></div><h4>RNA sequence</h4><p>the raw letters, e.g. <span class="mono">AUGGC…</span></p></div>
+          <span class="arrow">→</span>
+          <div class="stage frozen"><div class="st-top"><span class="tag">frozen 🔒</span></div><h4>DGRNA backbone</h4><p>reads it both ways → a rich number for every letter</p></div>
+          <span class="arrow">→</span>
+          <div class="stage"><div class="st-top"><span class="tag">pairing grid</span></div><h4>Every-vs-every</h4><p>combine letters <em>i</em> &amp; <em>j</em> into an L×L grid</p></div>
+          <span class="arrow">→</span>
+          <div class="stage trained"><div class="st-top"><span class="tag">trained ✎</span></div><h4>Probe head</h4><p>scores each cell + a <b>length router</b> picks the right head</p></div>
+          <span class="arrow">→</span>
+          <div class="stage"><div class="st-top"><span class="tag">contact map</span></div><h4>Likelihood map</h4><p>brightness = "how sure these two pair"</p></div>
+          <span class="arrow">→</span>
+          <div class="stage"><div class="st-top"><span class="tag">decode</span></div><h4>Nested decoder</h4><p>clean, no-crossing pairs → <span class="mono">( ( ) )</span></p></div>
+        </div>
+        <div class="stats" style="margin-top:22px;">
+          <div class="stat"><div class="num">2</div><div class="lab">length-routed heads</div></div>
+          <div class="stat"><div class="num">L×L</div><div class="lab">every pair considered</div></div>
+          <div class="stat"><div class="num amber">τ = 0.1</div><div class="lab">one shared cutoff</div></div>
+        </div>
+      </div>
+      <div class="notes-src">
+        <p><b>This is the centerpiece — walk it slowly, left to right.</b></p>
+        <ul>
+          <li><b>Sequence in.</b> Just the letters.</li>
+          <li><b>Frozen model.</b> Turns each letter into a rich list of numbers ("embedding") that captures its context.</li>
+          <li><b>Every-vs-every grid.</b> To ask "does letter 5 pair with letter 40?" we pair up all letters into an L×L grid — one cell per possible pair.</li>
+          <li><b>Probe head (the only trained part).</b> Scores each cell 0–1. The <b>length router</b> is a practical trick: short RNAs use a general head, longer ones use a special "tiled" head (next slide).</li>
+          <li><b>Contact map.</b> The grid of scores — bright = likely pair.</li>
+          <li><b>Nested decoder.</b> Turns the fuzzy map into a final, clean list of pairs using a no-crossing rule (slide after next).</li>
+        </ul>
+        <p>Land it: "Two ideas make this better than the rest — how we build the <b>map</b>, and how we <b>decode</b> it. Those are the next two slides."</p>
+      </div>
+    </section>
+
+    <!-- 5 · INNOVATION 1 -->
+    <section class="slide">
+      <div class="slide-inner">
+        <p class="eyebrow">Innovation 1</p>
+        <h2>Seeing the <span class="amber">long-range</span> pairs</h2>
+        <div class="split">
+          <div>
+            <ul class="clean">
+              <li>Old tools only looked <b>near the diagonal</b> — pairs between nearby letters. Fast, but they <b>never even computed</b> the far-apart pairs.</li>
+              <li class="amb">Big RNAs (like ribosomes) are full of pairs <b>hundreds of letters apart</b> — the amber dots. Old head scored them at <b>0%</b>.</li>
+              <li>Our <b>tiled head</b> computes the <em>whole</em> grid in overlapping tiles — so off-diagonal pairs get produced, not dropped.</li>
+              <li>Result: we recover <b>84%</b> of long-range pairs — <b>with no cost</b> to the easy local ones.</li>
+            </ul>
+            <div class="stats">
+              <div class="stat"><div class="num amber">0% → 84%</div><div class="lab">long-range recall (200–1000 nt)</div></div>
+              <div class="stat"><div class="num">0.94</div><div class="lab">local pairs — unchanged</div></div>
+            </div>
+          </div>
+          <div class="art">
+            <div>
+              <svg class="cmap" viewBox="0 0 200 200" role="img" aria-label="Contact map showing recovered long-range pairs off the diagonal">
+                <rect class="frame" x="6" y="6" width="188" height="188" rx="12"/>
+                <g class="grid">
+                  <line x1="53" y1="6" x2="53" y2="194"/><line x1="100" y1="6" x2="100" y2="194"/><line x1="147" y1="6" x2="147" y2="194"/>
+                  <line x1="6" y1="53" x2="194" y2="53"/><line x1="6" y1="100" x2="194" y2="100"/><line x1="6" y1="147" x2="194" y2="147"/>
+                </g>
+                <line class="diag" x1="14" y1="14" x2="186" y2="186"/>
+                <g>
+                  <circle class="loc" cx="42" cy="32" r="2.4"/><circle class="loc" cx="32" cy="42" r="2.4"/>
+                  <circle class="loc" cx="118" cy="106" r="2.4"/><circle class="loc" cx="106" cy="118" r="2.4"/>
+                  <circle class="loc" cx="70" cy="60" r="2.4"/><circle class="loc" cx="60" cy="70" r="2.4"/>
+                  <circle class="loc" cx="160" cy="150" r="2.4"/><circle class="loc" cx="150" cy="160" r="2.4"/>
+                </g>
+                <circle class="lr" cx="158" cy="42" r="4.4"/><circle class="lr" cx="42" cy="158" r="4.4"/>
+                <circle class="lr" cx="132" cy="30" r="4.4"/><circle class="lr" cx="30" cy="132" r="4.4"/>
+                <circle class="lr" cx="176" cy="86" r="4.4"/><circle class="lr" cx="86" cy="176" r="4.4"/>
+                <circle class="lr" cx="150" cy="66" r="4.4"/><circle class="lr" cx="66" cy="150" r="4.4"/>
+              </svg>
+              <div class="cmlegend">
+                <span><i style="background:var(--teal)"></i> diagonal = old view</span>
+                <span><i style="background:var(--amber)"></i> recovered far pairs</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="notes-src">
+        <p><b>The single biggest win — especially for long &amp; extra-long RNAs.</b></p>
+        <p>Analogy: "Imagine proof-reading a book but you're only allowed to compare each word with the words <em>right next to it</em>. You'd catch local typos but miss any rule that connects page 1 to page 300. The old method only read near the diagonal. Our tiled head reads the <b>whole page grid</b>."</p>
+        <p>Why 'tiled': the full grid is too big to compute at once for a 2,000-letter RNA, so we compute it in overlapping <b>tiles</b> and stitch them — and a normalization trick makes the tiled result numerically identical to doing it all at once.</p>
+        <p>Hammer the number: <b>from 0% to 84%</b> of long-range pairs, and local pairs actually went <em>up</em> slightly (0.88 → 0.94). No trade-off.</p>
+        <p>Point at the amber dots animating in: "That's the capability, live — those pairs were invisible before."</p>
+      </div>
+    </section>
+
+    <!-- 6 · INNOVATION 2 -->
+    <section class="slide">
+      <div class="slide-inner">
+        <p class="eyebrow">Innovation 2</p>
+        <h2>A decoder that can't<br>draw the impossible</h2>
+        <div class="split">
+          <div>
+            <ul class="clean">
+              <li>The map is fuzzy — the model often <b>over-guesses</b>, proposing pairs that physically <b>cross</b> each other.</li>
+              <li>We checked our data: the true structures have <b>zero crossing pairs</b>. So any crossing guess is <b>guaranteed wrong.</b></li>
+              <li class="amb">Our <b>nested decoder</b> finds the best set of pairs that <b>never cross</b> — throwing out the impossible ones automatically.</li>
+              <li>Free accuracy: the hard <b>medium</b> RNAs jumped <b>0.63 → 0.72</b>, no family labels, no extra training.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="dbx">
+              <div class="row"><span class="lab">msg</span><span class="brk"><span class="op">(</span> <span class="op">(</span> <span class="lr">(</span> <span class="cl">)</span> <span class="dot">.</span> <span class="cl">)</span> <span class="lr">)</span> <span class="dot">.</span></span></div>
+              <div class="row"><span class="lab"></span><span class="sub" style="color:var(--amber)">✗ crossing guess — impossible</span></div>
+              <div class="row" style="margin-top:8px"><span class="lab">fix</span><span class="brk"><span class="op">(</span> <span class="op">(</span> <span class="dot">.</span> <span class="cl">)</span> <span class="dot">.</span> <span class="cl">)</span> <span class="dot">.</span> <span class="dot">.</span></span></div>
+              <div class="row"><span class="lab"></span><span class="sub" style="color:var(--teal)">✓ nested — allowed</span></div>
+            </div>
+            <p class="sub" style="margin-top:14px;max-width:40ch;">Brackets may nest inside each other, but they may never cross. The decoder enforces exactly that.</p>
+          </div>
+        </div>
+      </div>
+      <div class="notes-src">
+        <p><b>Message:</b> a smart, free fix that fixes over-prediction.</p>
+        <p>Analogy: "If you know shoelaces in this shoe can never cross, then the moment a guess has two laces crossing, you can throw it out — no biology needed, it's just impossible." That's what the nested decoder does.</p>
+        <p>Honesty point (professors like this): our benchmark's labels happen to contain <b>no pseudoknots</b> (no crossings) — we verified this across 1.1 million pairs. So on this data, forbidding crossings is exactly right. In the real world some RNAs <em>do</em> cross (pseudoknots); handling those is future work and needs different labels. Be upfront: this decoder is the <em>opposite</em> of a pseudoknot decoder.</p>
+        <p>Number to land: medium tier <b>+0.088</b> (0.63 → 0.72) for free, and it helped precision the most (fewer wrong guesses).</p>
+      </div>
+    </section>
+
+    <!-- 7 · RESULTS -->
+    <section class="slide">
+      <div class="slide-inner">
+        <p class="eyebrow">Results · same test, same scoring for everyone</p>
+        <h2>Best on <span class="teal">every</span> length</h2>
+        <div class="split" style="grid-template-columns:1.15fr .85fr;">
+          <div class="tblwrap">
+            <table>
+              <thead><tr><th>Length tier</th><th>SuperFold</th><th>Eterna&shy;Fold</th><th>RiNALMo</th><th class="ours">Ours</th></tr></thead>
+              <tbody>
+                <tr><td>short ≤150</td><td>0.628</td><td>0.696</td><td>0.935</td><td class="ours">0.963</td></tr>
+                <tr><td>medium 151–600</td><td>0.480</td><td>0.543</td><td>0.585</td><td class="ours">0.718</td></tr>
+                <tr><td>long 601–1200</td><td>0.448</td><td>0.536</td><td>0.550</td><td class="ours">0.897</td></tr>
+                <tr><td>xl &gt;1200</td><td>0.388</td><td>0.502</td><td>0.576</td><td class="ours">0.920</td></tr>
+                <tr class="pooled"><td>pooled</td><td>0.433</td><td>0.533</td><td>0.622</td><td class="ours">0.898</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div>
+            <h3 class="sub" style="margin-bottom:14px;color:var(--ink-dim);">Pooled micro-F1 (0–1, higher is better)</h3>
+            <div class="bars">
+              <div class="bar"><span class="bl">SuperFold</span><span class="track"><span class="fill" style="--w:43.3%"></span></span><span class="bv">0.433</span></div>
+              <div class="bar"><span class="bl">EternaFold</span><span class="track"><span class="fill" style="--w:53.3%"></span></span><span class="bv">0.533</span></div>
+              <div class="bar"><span class="bl">RiNALMo</span><span class="track"><span class="fill" style="--w:62.2%"></span></span><span class="bv">0.622</span></div>
+              <div class="bar us"><span class="bl">Ours</span><span class="track"><span class="fill" style="--w:89.8%"></span></span><span class="bv">0.898</span></div>
+            </div>
+            <p class="sub" style="margin-top:18px;max-width:38ch;">The lead <b>grows with length</b> — on long &amp; xl RNAs we roughly double the physics engines.</p>
+          </div>
+        </div>
+      </div>
+      <div class="notes-src">
+        <p><b>The scoreboard.</b> First explain the metric in one breath: "micro-F1 runs 0 to 1; it balances 'did we find the real pairs' and 'were our guesses right.' Higher is better. Everyone is scored on the <b>exact same sequences</b> with the <b>same rules</b>."</p>
+        <p>The three competitors: <b>SuperFold</b> = classic physics; <b>EternaFold</b> = physics with learned parameters; <b>RiNALMo</b> = the leading big RNA language model.</p>
+        <p>Read the table down the "Ours" column: we're top of every tier, and — point this out — <b>the harder/longer it gets, the bigger our lead.</b> On long RNAs we're ~0.90 while physics tools are ~0.45.</p>
+        <p><b>Honesty caveat to say aloud:</b> these absolute numbers are optimistic — this dataset is unusually clean, so everyone scores high. That's fine, because the comparison is apples-to-apples; trust the <em>ranking and the gaps</em>, not the exact decimals.</p>
+      </div>
+    </section>
+
+    <!-- 8 · WHY MEDIUM IS OUR LOWEST TIER -->
+    <section class="slide">
+      <div class="slide-inner">
+        <p class="eyebrow">Reading the results honestly</p>
+        <h2>Why is <span class="amber">medium</span> our lowest tier?</h2>
+        <p class="dim" style="max-width:72ch;">Medium scores <b>0.72</b> — below our other tiers (0.90+). But it isn't a weakness of the method: medium is simply where all the <b>hardest molecules</b> live — and we're <b>still #1 on it.</b></p>
+        <div class="split">
+          <div>
+            <ul class="clean">
+              <li><b>It has no easy molecules.</b> The crowd-pleasers (tRNA, 5S) are all <em>short</em>. Medium is made almost entirely of the <b>hard families</b> — introns, tmRNA, SRP, RNaseP.</li>
+              <li>So it's a <b>hard-<em>families</em> problem, not a length problem.</b> These same molecules score low for <b>every</b> tool (tmRNA is ~0.2–0.3 across the board).</li>
+              <li class="amb">Part of the gap is a real <b>representation limit</b>: for SRP &amp; tmRNA the frozen model <b>can't "see" ~⅓ of the true pairs</b> — no decoder can recover those.</li>
+              <li>We've already lifted medium a lot — <b>0.49 → 0.72</b> — with the tiled head and the no-crossing decoder.</li>
+            </ul>
+          </div>
+          <div>
+            <h3 class="sub" style="margin-bottom:14px;color:var(--ink-dim);">What's inside the medium tier &nbsp;·&nbsp; family · share · F1</h3>
+            <div class="bars">
+              <div class="bar"><span class="bl">tmRNA · 14%</span><span class="track"><span class="fill" style="--w:36%;background:linear-gradient(90deg,var(--amber-soft),var(--amber))"></span></span><span class="bv">0.36</span></div>
+              <div class="bar"><span class="bl">SRP · 12%</span><span class="track"><span class="fill" style="--w:53%;background:linear-gradient(90deg,var(--amber-soft),var(--amber))"></span></span><span class="bv">0.53</span></div>
+              <div class="bar"><span class="bl">group-I · 33%</span><span class="track"><span class="fill" style="--w:58%;background:linear-gradient(90deg,var(--amber-soft),var(--amber))"></span></span><span class="bv">0.58</span></div>
+              <div class="bar"><span class="bl">RNaseP · 12%</span><span class="track"><span class="fill" style="--w:65%"></span></span><span class="bv">0.65</span></div>
+              <div class="bar"><span class="bl">16S · 27%</span><span class="track"><span class="fill" style="--w:90%"></span></span><span class="bv">0.90</span></div>
+            </div>
+            <div class="stats" style="margin-top:18px;">
+              <div class="stat"><div class="num">0.72</div><div class="lab">medium — still #1 (next best 0.585)</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="notes-src">
+        <p><b>This slide pre-empts the obvious question — "why is one number so much lower?" Answer it with confidence; it's honest, and it's actually a strength.</b></p>
+        <p>First reassure: "Medium is our lowest tier at 0.72 — but look back at the scoreboard: <b>we're still first on medium</b>, ahead of the next-best tool by about 0.13. It's not that we're bad at medium; it's that medium is hard for everyone."</p>
+        <p>The key idea, in plain words: "The 'short' tier looks amazing partly because it's full of <b>easy</b> molecules — tRNA, 5S. Those don't exist in medium. Medium is a <b>'greatest hits of the hardest RNAs'</b> — introns, tmRNA, SRP, RNase P. The same difficult molecules would score low at any length, so this is a hard-<em>families</em> problem, not a length problem."</p>
+        <p>Point at the bars: the amber ones (tmRNA 0.36, SRP 0.53, group-I 0.58) are the hard families dragging the average down; 16S in teal (0.90) shows we do great when the molecule is tractable.</p>
+        <p>Close by handing off to the next slide: "And part of what's left is a genuine limit — the frozen model literally can't see about a third of SRP and tmRNA's pairs. That's the exact problem our fine-tuning experiment went after — which is the next slide."</p>
+      </div>
+    </section>
+
+    <!-- 9 · THE JOURNEY -->
+    <section class="slide">
+      <div class="slide-inner">
+        <p class="eyebrow">How we got here</p>
+        <h2>The path — including a dead end</h2>
+        <div class="tl">
+          <div class="step"><div class="dot">1</div><div class="body"><h4>Pick the right model</h4><p><span class="k">bake-off →</span> a bidirectional (two-way) reader beat one-way models by a mile. Froze DGRNA, trained a small probe head on top.</p></div></div>
+          <div class="step win"><div class="dot">2</div><div class="body"><h4>Fix the long-range blind spot</h4><p><span class="k">0% → 84% →</span> the tiled head recovered far-apart pairs that older heads never computed. Biggest single jump, especially long/xl.</p></div></div>
+          <div class="step win"><div class="dot">3</div><div class="body"><h4>Free wins from smarter decoding</h4><p><span class="k">medium 0.63 → 0.72 →</span> the no-crossing decoder + per-family cutoffs cleaned up over-prediction. No new training.</p></div></div>
+          <div class="step"><div class="dot">4</div><div class="body"><h4>Diagnose the last hard families</h4><p><span class="k">SRP · RNaseP →</span> a probe showed the <b>frozen model literally can't see ~⅓ of their pairs</b> — a limit no decoder can fix.</p></div></div>
+          <div class="step parked"><div class="dot">✕</div><div class="body"><h4>Try a targeted fine-tune (LoRA) — and honestly reject it</h4><p><span class="k">looked like +0.21 →</span> but our <b>pre-registered honesty test</b> showed it was <b>memorizing look-alikes, not learning new folds.</b> On a truly-new molecule it didn't improve at all. <b>Parked it.</b></p></div></div>
+        </div>
+      </div>
+      <div class="notes-src">
+        <p><b>This is the "scientific process" slide — the part a professor grades hardest. Tell it as a story.</b></p>
+        <ul>
+          <li><b>Step 1:</b> we didn't guess the backbone — we ran a fair bake-off. Two-way reading won.</li>
+          <li><b>Step 2:</b> found a structural blind spot (long-range pairs) and engineered around it. This is where most of the win came from.</li>
+          <li><b>Step 3:</b> two "free" ideas — no-crossing decode + per-family thresholds — that needed no extra training.</li>
+          <li><b>Step 4:</b> we diagnosed <em>why</em> two families still lag: the frozen model can't represent about a third of their pairs. Honest root-cause.</li>
+          <li><b>Step 5 (the important one):</b> we tried to fix that with a small fine-tune. On paper it looked great — +0.21. But we had <b>written down the test in advance</b> to catch self-deception, and it revealed the gain was mostly <b>memorizing molecules similar to training data</b>. On a genuinely new molecule: no improvement. So we <b>parked it.</b></li>
+        </ul>
+        <p>Land the lesson: "Real science means building the test that can prove <em>you</em> wrong — and then believing it. A tempting +0.21 that doesn't generalize is not a result."</p>
+      </div>
+    </section>
+
+    <!-- 10 · LIMITS -->
+    <section class="slide">
+      <div class="slide-inner">
+        <p class="eyebrow">Honest limits</p>
+        <h2>What we don't claim</h2>
+        <ul class="clean">
+          <li><b>Two families still lag</b> — SRP and RNaseP. It's a <b>representation limit</b> (the frozen model can't see some pairs), not a decoding bug. Fixing it needs new data we don't have.</li>
+          <li><b>Nested pairs only.</b> Our labels contain no crossing pairs (pseudoknots), so we measure nested-structure accuracy. Real pseudoknots are future work.</li>
+          <li class="amb"><b>Absolute scores are optimistic</b> — this dataset is clean and regular. Trust the head-to-head ranking, not the raw decimals.</li>
+          <li><b>The LoRA lesson:</b> more trainable capacity ≠ real learning when there's almost no truly-new data to learn from or test on.</li>
+        </ul>
+      </div>
+      <div class="notes-src">
+        <p><b>Showing limits builds credibility — don't rush this.</b></p>
+        <p>SRP / RNaseP: be specific — a diagnostic showed roughly a third of their true pairs get a near-zero score from the frozen backbone. No threshold or decoder can recover a pair the model can't see. The real fix is unfreezing with genuinely novel training data — which barely exists for these families.</p>
+        <p>Nested-only: our datasets flattened out pseudoknots when they were made. So we're honest that we measure nested accuracy; pseudoknots would need different labels.</p>
+        <p>The optimism caveat repeats slide 7 on purpose — examiners respect a team that keeps flagging it.</p>
+        <p>Tie it back: the LoRA dead-end <em>is</em> a finding — it tells us the bottleneck is data, not model size.</p>
+      </div>
+    </section>
+
+    <!-- 11 · TAKEAWAYS -->
+    <section class="slide">
+      <div class="slide-inner">
+        <p class="eyebrow"><span class="db">( ( (  wrap-up  ) ) )</span></p>
+        <h2>Takeaways</h2>
+        <div class="split">
+          <div>
+            <ul class="clean">
+              <li><b>Small head, frozen model, two decoder tricks</b> = state-of-the-art RNA secondary structure on <b>every length</b>.</li>
+              <li class="amb">The headline capability: <b>long-range pairs, 0% → 84%</b> — the thing that beats everyone on big RNAs.</li>
+              <li><b>Deployed &amp; reproducible:</b> pooled micro-F1 <b>0.898</b>, confirmed on a fresh full run.</li>
+              <li><b>Next:</b> unify the two heads · per-family unfreeze <em>with</em> new data · pseudoknot-preserving labels.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="stats" style="flex-direction:column;align-items:stretch;">
+              <div class="stat"><div class="num">0.898</div><div class="lab">pooled micro-F1 (deployed)</div></div>
+              <div class="stat"><div class="num amber">84%</div><div class="lab">long-range pairs recovered</div></div>
+              <div class="stat"><div class="num">#1</div><div class="lab">on all 4 length tiers</div></div>
+            </div>
+          </div>
+        </div>
+        <p style="margin-top:26px;font-family:var(--font-display);font-size:clamp(1.1rem,2.4vw,1.5rem);color:var(--ink);">Thank you — questions?</p>
+        <p class="sub" style="margin-top:20px;line-height:1.8;max-width:64ch;">
+          <span style="color:var(--amber);letter-spacing:.12em;">ACKNOWLEDGMENT</span><br>
+          The <b style="color:var(--ink)">DGRNA</b> backbone that powers this pipeline was created by
+          <b style="color:var(--ink)">Yuan, Chen &amp; Pan</b> — <em>bioRxiv</em> 2024.10.31.621427.
+          We use their model frozen; the backbone credit is entirely theirs.
+        </p>
+      </div>
+      <div class="notes-src">
+        <p><b>Recap in three beats, then invite questions.</b></p>
+        <ul>
+          <li>"We put a <b>small trained head on a frozen RNA model</b>, and added <b>two decoder ideas</b>."</li>
+          <li>"That gives the <b>best accuracy on every RNA length</b> — and the standout is recovering <b>long-range pairs from 0% to 84%</b>."</li>
+          <li>"It's <b>deployed and reproducible</b> at pooled 0.898 — and we were honest about what doesn't work yet."</li>
+        </ul>
+        <p>End on the science-culture note: "The result I'm proudest of isn't the +0.21 — it's the test that told us the +0.21 was fake." Then: "Happy to take questions."</p>
+        <p>Likely questions to be ready for: What's micro-F1? Why frozen? What's a pseudoknot? Why did LoRA memorize? — you have a slide/answer for each.</p>
+        <p><b>Credit out loud:</b> before questions, acknowledge that the <b>DGRNA</b> backbone — the model everything is built on — was created by <b>Yuan, Chen &amp; Pan</b> (bioRxiv 2024.10.31.621427). We used it frozen; our contribution is the probe head, the tiled long-range head, and the decoders.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <div class="nav prev"><button id="prev" aria-label="Previous slide">‹</button></div>
+  <div class="nav next"><button id="next" aria-label="Next slide">›</button></div>
+  <div class="dots" id="dots" aria-hidden="true"></div>
+
+  <aside class="notes" id="notes">
+    <div class="notes-in">
+      <div class="notes-head" id="notesHead">Speaker notes · slide 1</div>
+      <div class="notes-body" id="notesBody"></div>
+    </div>
+  </aside>
+</div>
+
+<script>
+(function(){
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var i = 0;
+  var counter = document.getElementById('counter');
+  var notesBody = document.getElementById('notesBody');
+  var notesHead = document.getElementById('notesHead');
+  var app = document.getElementById('app');
+  var progress = document.getElementById('progress');
+  var dotsWrap = document.getElementById('dots');
+  var pad = function(n){ return (n<10?'0':'')+n; };
+
+  // build dots
+  slides.forEach(function(s,k){
+    var b = document.createElement('button');
+    b.setAttribute('aria-label','Go to slide '+(k+1));
+    b.addEventListener('click', function(){ go(k); });
+    dotsWrap.appendChild(b);
+  });
+  var dots = Array.prototype.slice.call(dotsWrap.children);
+
+  function render(){
+    slides.forEach(function(s,k){ s.classList.toggle('active', k===i); });
+    dots.forEach(function(d,k){ d.classList.toggle('on', k===i); });
+    counter.textContent = pad(i+1)+' / '+pad(slides.length);
+    progress.style.width = (slides.length>1 ? (i/(slides.length-1))*100 : 0)+'%';
+    var src = slides[i].querySelector('.notes-src');
+    notesBody.innerHTML = src ? src.innerHTML : '<p class="dim">No notes for this slide.</p>';
+    notesHead.textContent = 'Speaker notes · slide '+(i+1);
+    slides[i].scrollTop = 0;
+  }
+  function go(n){ i = Math.max(0, Math.min(slides.length-1, n)); render(); }
+
+  document.getElementById('prev').addEventListener('click', function(){ go(i-1); });
+  document.getElementById('next').addEventListener('click', function(){ go(i+1); });
+
+  var notesToggle = document.getElementById('notesToggle');
+  function toggleNotes(){
+    var open = app.classList.toggle('notes-open');
+    notesToggle.setAttribute('aria-pressed', open ? 'true' : 'false');
+  }
+  notesToggle.addEventListener('click', toggleNotes);
+
+  document.getElementById('themeToggle').addEventListener('click', function(){
+    var r = document.documentElement;
+    var cur = r.getAttribute('data-theme');
+    var mqDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if(!cur){ cur = mqDark ? 'dark' : 'light'; }
+    r.setAttribute('data-theme', cur==='dark' ? 'light' : 'dark');
+  });
+
+  window.addEventListener('keydown', function(e){
+    if(e.target && /^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
+    var k = e.key;
+    if(k==='ArrowRight'||k==='ArrowDown'||k==='PageDown'||k===' '){ e.preventDefault(); go(i+1); }
+    else if(k==='ArrowLeft'||k==='ArrowUp'||k==='PageUp'){ e.preventDefault(); go(i-1); }
+    else if(k==='Home'){ e.preventDefault(); go(0); }
+    else if(k==='End'){ e.preventDefault(); go(slides.length-1); }
+    else if(k==='n'||k==='N'){ toggleNotes(); }
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "title": "Reading the shape of RNA with LLMs: a frozen RNA language model + probe head that leads on every length tier",
+  "date": "2026-07-13",
+  "project": "RNA secondary structure",
+  "summary": "Presented by Vedanth Murari (undergraduate researcher). A pipeline that predicts RNA secondary structure by putting a small trained probe head on a frozen ~100M-parameter DGRNA language model, with a block-tiled head for long-range pairs and a nested (non-crossing) decoder. It matches or beats SuperFold, EternaFold, and RiNALMo on every length tier (pooled base-pair micro-F1 0.898) and recovers 84% of long-range pairs that a conventional band head scores at 0%. Includes the honest failure of a per-family LoRA unfreeze — a same-provenance +0.21 that a pre-registered test showed was memorization, not learning.",
+  "takeaways": [
+    "Frozen ~100M-param bidirectional DGRNA backbone + a small trained probe head; a backbone-controlled bake-off shows bidirectional reading beats one-directional models for base pairing (0.74 vs 0.39–0.44).",
+    "A block-tiled head recovers long-range base pairs: 200–1000 nt recall 0% → 84%, with no cost to local pairs — the biggest single win, especially on long/xl RNAs.",
+    "A nested (non-crossing) decoder deletes impossible crossing predictions and lifts the hard medium tier 0.63 → 0.72 — family-agnostic and free (the labels are verified 0-pseudoknot, so a nested decoder is the correct one).",
+    "Best method on every length tier (short 0.963, medium 0.718, long 0.897, xl 0.920; pooled 0.898), ahead of SuperFold, EternaFold, and RiNALMo.",
+    "Honest negative result: a per-family LoRA unfreeze for SRP lifted a same-provenance metric +0.21 but failed a pre-registered cross-provenance test (memorization amplification), so it was parked — the bottleneck is novel data, not model size."
+  ],
+  "links": [
+    { "label": "DGRNA backbone — Yuan, Chen & Pan, bioRxiv 2024.10.31.621427", "url": "https://www.biorxiv.org/content/10.1101/2024.10.31.621427" }
+  ],
+  "slides": "index.html"
+}
