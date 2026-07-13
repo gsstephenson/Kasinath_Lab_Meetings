@@ -1,6 +1,7 @@
 {
   "title": "MAGF, honestly: why the two-stage decoder plateaued — and the SDF re-engineering that fixes it",
   "date": "2026-07-13",
+  "order": 2,
   "project": "Membrane2Former → SDF",
   "summary": "Final results from the optimized 2D two-stage MAGF decoder block. The idea (membrane-aware geometry feedback for organelle segmentation) is promising, but the soft-bias implementation turned out causally inert. The failure is diagnostic, not fatal: an oracle membrane sign-gate drives the topological 'leak' to zero at no cost to real organelles — which points to re-engineering MAGF with learned membrane signed-distance fields (SDFs) so containment is licensed by construction. Includes an SDF primer + where this stands vs the recent CVPR 2026 SDF-for-cryo paper.",
   "takeaways": [

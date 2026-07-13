@@ -1,6 +1,7 @@
 {
   "title": "Reading the shape of RNA with LLMs: a frozen RNA language model + probe head that leads on every length tier",
   "date": "2026-07-13",
+  "order": 1,
   "project": "RNA secondary structure",
   "summary": "Presented by Vedanth Murari (undergraduate researcher). A pipeline that predicts RNA secondary structure by putting a small trained probe head on a frozen ~100M-parameter DGRNA language model, with a block-tiled head for long-range pairs and a nested (non-crossing) decoder. It matches or beats SuperFold, EternaFold, and RiNALMo on every length tier (pooled base-pair micro-F1 0.898) and recovers 84% of long-range pairs that a conventional band head scores at 0%. Includes the honest failure of a per-family LoRA unfreeze — a same-provenance +0.21 that a pre-registered test showed was memorization, not learning.",
   "takeaways": [

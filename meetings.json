@@ -7,6 +7,7 @@
       "path": "meetings/2026-01-26-example-project-kickoff/",
       "title": "Example \u2014 Project kickoff: background & specific aims",
       "date": "2026-01-26",
+      "order": 0,
       "project": "Example Project A",
       "summary": "Sample meeting to demonstrate the site. Introduced the motivating literature, framed the central question, and proposed three specific aims for the project.",
       "hasSlides": true
@@ -16,6 +17,7 @@
       "path": "meetings/2026-04-13-example-optimization-progress/",
       "title": "Example \u2014 Optimization progress & troubleshooting",
       "date": "2026-04-13",
+      "order": 0,
       "project": "Example Project A",
       "summary": "Sample meeting to demonstrate the site. Walked through optimization attempts, what failed, what improved yields, and the plan for the next quarter.",
       "hasSlides": true
@@ -25,26 +27,29 @@
       "path": "meetings/2026-07-06-example-first-results/",
       "title": "Example \u2014 First results from the second project thread",
       "date": "2026-07-06",
+      "order": 0,
       "project": "Example Project B",
       "summary": "Sample meeting to demonstrate the site. A second project thread appears in its own color, showing how parallel work reads as distinct strands on the timeline.",
       "hasSlides": false
-    },
-    {
-      "slug": "2026-07-13-magf-sdf-reengineering",
-      "path": "meetings/2026-07-13-magf-sdf-reengineering/",
-      "title": "MAGF, honestly: why the two-stage decoder plateaued \u2014 and the SDF re-engineering that fixes it",
-      "date": "2026-07-13",
-      "project": "Membrane2Former \u2192 SDF",
-      "summary": "Final results from the optimized 2D two-stage MAGF decoder block. The idea (membrane-aware geometry feedback for organelle segmentation) is promising, but the soft-bias implementation turned out causally inert. The failure is diagnostic, not fatal: an oracle membrane sign-gate drives the topological 'leak' to zero at no cost to real organelles \u2014 which points to re-engineering MAGF with learned membrane signed-distance fields (SDFs) so containment is licensed by construction. Includes an SDF primer + where this stands vs the recent CVPR 2026 SDF-for-cryo paper.",
-      "hasSlides": true
     },
     {
       "slug": "2026-07-13-reading-the-shape-of-rna-with-llms",
       "path": "meetings/2026-07-13-reading-the-shape-of-rna-with-llms/",
       "title": "Reading the shape of RNA with LLMs: a frozen RNA language model + probe head that leads on every length tier",
       "date": "2026-07-13",
+      "order": 1,
       "project": "RNA secondary structure",
       "summary": "Presented by Vedanth Murari (undergraduate researcher). A pipeline that predicts RNA secondary structure by putting a small trained probe head on a frozen ~100M-parameter DGRNA language model, with a block-tiled head for long-range pairs and a nested (non-crossing) decoder. It matches or beats SuperFold, EternaFold, and RiNALMo on every length tier (pooled base-pair micro-F1 0.898) and recovers 84% of long-range pairs that a conventional band head scores at 0%. Includes the honest failure of a per-family LoRA unfreeze \u2014 a same-provenance +0.21 that a pre-registered test showed was memorization, not learning.",
+      "hasSlides": true
+    },
+    {
+      "slug": "2026-07-13-magf-sdf-reengineering",
+      "path": "meetings/2026-07-13-magf-sdf-reengineering/",
+      "title": "MAGF, honestly: why the two-stage decoder plateaued \u2014 and the SDF re-engineering that fixes it",
+      "date": "2026-07-13",
+      "order": 2,
+      "project": "Membrane2Former \u2192 SDF",
+      "summary": "Final results from the optimized 2D two-stage MAGF decoder block. The idea (membrane-aware geometry feedback for organelle segmentation) is promising, but the soft-bias implementation turned out causally inert. The failure is diagnostic, not fatal: an oracle membrane sign-gate drives the topological 'leak' to zero at no cost to real organelles \u2014 which points to re-engineering MAGF with learned membrane signed-distance fields (SDFs) so containment is licensed by construction. Includes an SDF primer + where this stands vs the recent CVPR 2026 SDF-for-cryo paper.",
       "hasSlides": true
     }
   ]

@@ -71,6 +71,9 @@ def main():
             "path": f"meetings/{folder.name}/",
             "title": title,
             "date": date_str,
+            # Optional "order" sequences multiple talks on the SAME date
+            # (lower = earlier in the session). Defaults to 0.
+            "order": meta.get("order", 0),
             "project": meta.get("project", "General"),
             "summary": meta.get("summary", ""),
             "hasSlides": (folder / slides).exists(),
@@ -79,7 +82,7 @@ def main():
     if errors:
         fail(errors)
 
-    entries.sort(key=lambda m: (m["date"], m["slug"]))
+    entries.sort(key=lambda m: (m["date"], m["order"], m["slug"]))
     OUTPUT.write_text(
         json.dumps(
             {"generated": date.today().isoformat(), "count": len(entries), "meetings": entries},
