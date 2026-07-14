@@ -549,7 +549,7 @@
   }
 
   var membrane=makeMembrane(44,35,21,88,0.14,0.6);
-  var legit={x:39,y:39,r:5.6}, leak={x:82,y:22,r:6.0};
+  var legit={x:39,y:39,r:5.6}, leak={x:74,y:22,r:6.0};
   var mode="leak", cursor=null;
   var c=document.getElementById("sdfCanvas"), g=c.getContext("2d");
   var CW=0,CH=0,DPR=1;
@@ -616,20 +616,33 @@
     }
   }
   var rDist=document.getElementById("rDist"),rSide=document.getElementById("rSide");
-  c.addEventListener("pointermove",function(e){
-    var rect=c.getBoundingClientRect();
-    var sx=(e.clientX-rect.left)/rect.width*CW, sy=(e.clientY-rect.top)/rect.height*CH;
-    cursor={x:(sx-boxX)/scale, y:(sy-boxY)/scale};
-    var d=sdPoly(cursor.x,cursor.y,membrane);
+  function setProbe(wx,wy){
+    cursor={x:wx,y:wy};
+    var d=sdPoly(wx,wy,membrane);
     rDist.textContent=(d<0?"−":"+")+Math.abs(d).toFixed(1);
     var onMem=Math.abs(d)<0.8;
     rDist.style.color=onMem?cssvar("--gold"):(d<0?cssvar("--inside"):cssvar("--outside"));
     rSide.textContent=onMem?"on the bilayer":(d<0?"INSIDE · licensed":"OUTSIDE · forbidden");
     rSide.style.color=onMem?cssvar("--gold"):(d<0?cssvar("--inside"):cssvar("--outside"));
     draw();
-  });
-  c.addEventListener("pointerleave",function(){cursor=null;
-    rDist.textContent="—";rSide.textContent="hover the field";rDist.style.color="";rSide.style.color="";draw();});
+  }
+  function probeFromEvent(e){
+    var rect=c.getBoundingClientRect();
+    var sx=(e.clientX-rect.left)/rect.width*CW, sy=(e.clientY-rect.top)/rect.height*CH;
+    setProbe((sx-boxX)/scale,(sy-boxY)/scale);
+  }
+  var idleProbe=true, idleT=1.6, resumeT;
+  function pauseAuto(){ idleProbe=false; clearTimeout(resumeT); resumeT=setTimeout(function(){ idleProbe=true; },2600); }
+  c.addEventListener("pointermove",function(e){ pauseAuto(); probeFromEvent(e); });
+  c.addEventListener("pointerdown",function(e){ pauseAuto(); probeFromEvent(e); });   /* tap / touch */
+  c.addEventListener("pointerleave",function(){ idleProbe=true; });                    /* hand back to the idle tour */
+  /* idle auto-demo: a probe tours inside -> across the membrane -> outside, so the sign flips on its own */
+  var _pA=[30,40], _pB=[90,18];
+  (function autoLoop(){
+    if(!reduce && idleProbe){ idleT+=0.011; var u=Math.sin(idleT)*0.5+0.5;
+      setProbe(_pA[0]+(_pB[0]-_pA[0])*u, _pA[1]+(_pB[1]-_pA[1])*u); }
+    requestAnimationFrame(autoLoop);
+  })();
   var bLeak=document.getElementById("bLeak"),bGate=document.getElementById("bGate"),verdict=document.getElementById("verdict");
   function setMode(m){
     mode=m; bLeak.setAttribute("aria-pressed",m==="leak"); bGate.setAttribute("aria-pressed",m==="gate");
